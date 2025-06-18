@@ -1,0 +1,2658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Project Metrics Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <style>
+    :root {
+      --primary-blue: #007bff;
+      --secondary-blue: #424770;
+      --accent-yellow: #ffc107;
+      --neutral-bg: #f7f9fa;
+      --neutral-card: #f3f7fd;
+      --neutral-border: #e0e4ea;
+      --high-contrast: #1a2a4a;
+      --table-header-bg: #eaf1fb;
+      --table-header-text: #1a2a4a;
+      --table-row-hover: #e0f0ff;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f9fa;
+      margin: 0;
+      padding: 0;
+    }
+    .dashboard {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 270px;
+      background: #25324a;
+      color: #fff;
+      padding: 32px 18px 24px 18px;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .sidebar h2 {
+      color: #fff;
+      font-size: 1.3rem;
+      margin-bottom: 28px;
+      text-align: left;
+      letter-spacing: 0.5px;
+    }
+    .metrics-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .metric-checkbox {
+      display: flex;
+      align-items: center;
+      font-size: 1rem;
+      background: #34405a;
+      border-radius: 6px;
+      padding: 8px 10px;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+    .metric-checkbox input[type="checkbox"] {
+      margin-right: 10px;
+      accent-color: #007bff;
+    }
+    .main-content {
+      flex: 1;
+      padding: 40px 32px 32px 32px;
+      background: #f7f9fa;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .display-area {
+      background: #fff;
+      border: 1px solid #e0e4ea;
+      border-radius: 8px;
+      min-height: 250px;
+      padding: 18px 16px;
+      color: #444;
+      font-size: 1.08rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      flex: 1;
+    }
+    .placeholder {
+      color: #aaa;
+      font-style: italic;
+    }
+    .tr-header {
+      background: #1a2a4a;
+      color: #fff;
+      padding: 12px 16px 8px 16px;
+      border-radius: 8px 8px 0 0;
+      margin: -18px -16px 16px -16px;
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tr-header .subtitle {
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: #b0c4e3;
+      margin-left: 12px;
+    }
+    .tr-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .tr-filter {
+      background: #eaf1fb;
+      border: 1px solid #c7d6ee;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.9rem;
+      color: #1a2a4a;
+      min-width: 100px;
+      text-align: center;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .tr-summary {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .tr-card {
+      background: #f3f7fd;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      padding: 12px 20px 10px 20px;
+      min-width: 140px;
+      text-align: center;
+      flex: 1;
+      margin-bottom: 6px;
+    }
+    .tr-card .tr-card-title {
+      color: #1a2a4a;
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+    .tr-card .tr-card-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #007bff;
+    }
+    .tr-charts {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      justify-content: center;
+    }
+    .tr-chart {
+      background: #f3f7fd;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      padding: 12px 18px;
+      flex: 1;
+      text-align: center;
+      min-height: 165px;
+      max-width: 500px;
+      margin: 0 auto;
+      overflow: visible;
+      position: relative;
+    }
+    .tr-table-container {
+      background: #f3f7fd;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      padding: 8px 6px 6px 6px;
+      margin-top: 6px;
+      overflow-x: auto;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    table.tr-table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 600px;
+      font-size: 0.8rem;
+      background: #fff;
+    }
+    .tr-table th, .tr-table td {
+      border: 1px solid var(--neutral-border);
+      padding: 6px 8px;
+      text-align: left;
+    }
+    .tr-table th {
+      background: var(--table-header-bg);
+      color: var(--table-header-text);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+    .tr-table tr:hover {
+      background: var(--table-row-hover);
+    }
+    .tr-filter-btn {
+      background: #eaf1fb;
+      border: 1px solid #c7d6ee;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.9rem;
+      color: #1a2a4a;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .tr-filter-btn:hover {
+      background: #d4e3f7;
+    }
+    .tr-filter-btn.active {
+      background: #007bff;
+      color: #fff;
+      border-color: #007bff;
+    }
+    .export-btn {
+      background: var(--primary-blue);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 10px;
+      margin-left: 8px;
+      font-size: 0.92rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .export-btn:focus {
+      outline: 2px solid var(--accent-yellow);
+    }
+    .export-btn:hover {
+      background: var(--secondary-blue);
+    }
+    .custom-donut-label {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      font-size: 10px;
+      font-weight: bold;
+      color: var(--primary-blue);
+      z-index: 10;
+    }
+    @media (max-width: 900px) {
+      .dashboard {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        min-height: unset;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 18px 8px 8px 8px;
+        box-shadow: none;
+        background: #25324a;
+        justify-content: center;
+      }
+      .sidebar h2 {
+        display: none;
+      }
+      .metrics-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .metric-checkbox {
+        min-width: 180px;
+        font-size: 0.98rem;
+        padding: 6px 8px;
+      }
+      .main-content {
+        padding: 18px 6px 12px 6px;
+      }
+      .display-area {
+        padding: 8px 2px;
+        min-height: 180px;
+      }
+      .tr-header {
+        font-size: 1.1rem;
+        padding: 10px 8px 6px 8px;
+      }
+      .tr-summary, .tr-charts {
+        gap: 12px;
+      }
+      .tr-card, .tr-chart {
+        min-width: 120px;
+        padding: 10px 8px 8px 8px;
+      }
+      .tr-table-container {
+        padding: 4px 2px 2px 2px;
+        max-height: 180px;
+      }
+      table.tr-table {
+        font-size: 0.92rem;
+        min-width: 400px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <aside class="sidebar">
+      <h2>Metrics</h2>
+      <form id="metricsForm">
+        <div class="metrics-list">
+          <label class="metric-checkbox"><input type="checkbox" value="Typical Relationships FS+0d Lag">Typical Relationships FS+0d Lag</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Typical Relationships Non FS+0d Lag">Typical Relationships Non FS+0d Lag</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Open Ends">Open Ends</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Leads">Leads</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Lags">Lags</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Excessive Lags">Excessive Lags</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Constraints">Constraints</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Excessive Durations">Excessive Durations</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Negative Total Float">Negative Total Float</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Critical Total Float">Critical Total Float</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Excessive Total Float">Excessive Total Float</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Invalid Dates">Invalid Dates</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Riding Data Date">Riding Data Date</label>
+          <label class="metric-checkbox"><input type="checkbox" value="Resources">Resources</label>
+        </div>
+      </form>
+    </aside>
+    <main class="main-content">
+      <div class="display-area" id="displayArea" aria-live="polite" aria-label="Metric data display area">
+        <span class="placeholder">Select one or more metrics to view their data.</span>
+      </div>
+    </main>
+  </div>
+  <script>
+    const metricsForm = document.getElementById('metricsForm');
+    const displayArea = document.getElementById('displayArea');
+
+    Chart.register(ChartDataLabels);
+
+    // Separate filter state for each metric
+    const fsFilters = {
+      relationship_type: 'All',
+      driving: 'All',
+      lag: 'All',
+      free_float: 'All',
+      project_id: 'All'
+    };
+    const nonfsFilters = {
+      relationship_type: 'All',
+      driving: 'All',
+      lag: 'All',
+      free_float: 'All',
+      project_id: 'All'
+    };
+    const leadsFilters = {
+      relationship_type: 'All',
+      driving: 'All',
+      lag: 'All',
+      free_float: 'All',
+      project_id: 'All'
+    };
+    const lagsFilters = {
+      relationship_type: 'All',
+      driving: 'All',
+      lag: 'All',
+      free_float: 'All',
+      project_id: 'All'
+    };
+    const excessiveLagsFilters = {
+      relationship_type: 'All',
+      driving: 'All',
+      lag: 'All',
+      free_float: 'All',
+      project_id: 'All'
+    };
+
+    // Global event listeners removed - each section now handles its own events
+
+    function applyFiltersAndRender() {
+      console.log("applyFiltersAndRender() called with current filters:", fsFilters);
+      const params = new URLSearchParams();
+      if (fsFilters.relationship_type !== 'All') {
+        params.append('relationship_type', fsFilters.relationship_type);
+      }
+      if (fsFilters.driving !== 'All') {
+        params.append('driving', fsFilters.driving);
+      }
+      if (fsFilters.lag !== 'All') {
+        params.append('lag', fsFilters.lag);
+      }
+      if (fsFilters.free_float !== 'All') {
+        params.append('free_float', fsFilters.free_float);
+      }
+      const queryString = params.toString();
+      console.log("Query string:", queryString);
+
+      Promise.all([
+          fetch(`/api/typical-fs0d?${queryString}`).then(res => res.json()),
+          fetch(`/api/finalactivitykpi?${queryString}`).then(res => res.json()),
+          fetch(`/api/relationship-type-counts?${queryString}`).then(res => res.json()),
+          fetch(`/api/relationship-percentage-history?${queryString}`).then(res => res.json())
+      ])
+      .then(([typicalRelationshipsData, kpiData, relationshipTypeCounts, relationshipHistoryData]) => {
+          console.log("Data fetched successfully.");
+          // Always call renderTypicalRelationshipsFS0dLag if the metric is selected.
+          // Let renderTypicalRelationshipsFS0dLag handle specific 'no data' messages for each component.
+          renderTypicalRelationshipsFS0dLag(typicalRelationshipsData, kpiData, relationshipTypeCounts, relationshipHistoryData);
+      })
+      .catch(error => {
+          console.error("Error fetching dashboard data:", error);
+          displayArea.innerHTML = '<span class="placeholder">Error loading data. Please try again.</span>';
+      });
+    }
+
+    // Call applyFiltersAndRender on page load to initially render the dashboard and filters
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log("DOMContentLoaded event fired. Initializing dashboard render.");
+      // Removed initial call to applyFiltersAndRender();
+      // Data will now load only when a metric is selected via the checkbox change event.
+    });
+
+    // Sidebar event handler: single selection only
+    metricsForm.addEventListener('change', function(event) {
+      // Implement single selection - uncheck all others when one is selected
+      if (event.target.type === 'checkbox' && event.target.checked) {
+        const allCheckboxes = metricsForm.querySelectorAll('input[type="checkbox"]');
+        allCheckboxes.forEach(cb => {
+          if (cb !== event.target) {
+            cb.checked = false;
+          }
+        });
+      }
+      
+      const checked = Array.from(metricsForm.querySelectorAll('input[type="checkbox"]:checked'));
+      if (checked.length === 0) {
+        displayArea.innerHTML = '<span class="placeholder">Select a metric to view its data.</span>';
+      } else if (checked.some(cb => cb.value === "Typical Relationships FS+0d Lag")) {
+        renderFSSection();
+      } else if (checked.some(cb => cb.value === "Typical Relationships Non FS+0d Lag")) {
+        renderNonFSSection();
+      } else if (checked.some(cb => cb.value === "Leads")) {
+        renderLeadsSection();
+      } else if (checked.some(cb => cb.value === "Lags")) {
+        renderLagsSection();
+      } else if (checked.some(cb => cb.value === "Excessive Lags")) {
+        renderExcessiveLagsSection();
+      } else {
+        displayArea.innerHTML = checked.map(cb => `<strong>${cb.value}</strong>: <span class='placeholder'>Data under construction</span>`).join('<br><br>');
+      }
+    });
+
+    // --- FS+0d Lag Section ---
+    function renderFSSection() {
+      displayArea.innerHTML = '';
+      renderFSFilters();
+      fetchAndRenderFSData();
+    }
+    function renderFSFilters() {
+      // Render filter bar with unique IDs for FS+0d
+      // (You can copy your existing FS+0d filter bar HTML here, but use id="fs-relationship-type-filters", etc.)
+      // ...
+      // After rendering, attach event listeners for FS+0d only
+      attachFSFilterEvents();
+    }
+    function attachFSFilterEvents() {
+      // Remove any previous event listeners if needed
+      // Attach event listeners only to #fs-relationship-type-filters, #fs-lagFilter, etc.
+      // On filter change, update fsFilters and call fetchAndRenderFSData()
+    }
+    function fetchAndRenderFSData() {
+      // Build query string from fsFilters
+      const params = new URLSearchParams();
+      if (fsFilters.relationship_type !== 'All') params.append('relationship_type', fsFilters.relationship_type);
+      if (fsFilters.driving !== 'All') params.append('driving', fsFilters.driving);
+      if (fsFilters.lag !== 'All') params.append('lag', fsFilters.lag);
+      if (fsFilters.free_float !== 'All') params.append('free_float', fsFilters.free_float);
+      // project_id left as All for now
+      const queryString = params.toString();
+      Promise.all([
+        fetch(`/api/typical-fs0d?${queryString}`).then(res => res.json()),
+        fetch(`/api/finalactivitykpi?${queryString}`).then(res => res.json()),
+        fetch(`/api/relationship-type-counts?${queryString}`).then(res => res.json()),
+        fetch(`/api/relationship-percentage-history?${queryString}`).then(res => res.json())
+      ])
+      .then(([typicalRelationshipsData, kpiData, relationshipTypeCounts, relationshipHistoryData]) => {
+        renderTypicalRelationshipsFS0dLag(typicalRelationshipsData, kpiData, relationshipTypeCounts, relationshipHistoryData);
+      })
+      .catch(error => {
+        displayArea.innerHTML = '<span class="placeholder">Error loading data. Please try again.</span>';
+      });
+    }
+
+    // --- Non FS+0d Lag Section ---
+    function renderNonFSSection() {
+      displayArea.innerHTML = '';
+      renderNonFSFilters();
+      fetchAndRenderNonFSData();
+    }
+    function renderNonFSFilters() {
+      // Render filter bar with unique IDs for Non FS+0d
+      // (You can copy your existing Non FS+0d filter bar HTML here, but use id="nonfs-relationship-type-filters", etc.)
+      // ...
+      // After rendering, attach event listeners for Non FS+0d only
+      attachNonFSFilterEvents();
+      populateNonFSFilterOptions();
+    }
+    function attachNonFSFilterEvents() {
+      // Remove any previous event listeners if needed
+      // Attach event listeners only to #nonfs-relationship-type-filters, #nonfs-lagFilter, etc.
+      // On filter change, update nonfsFilters and call fetchAndRenderNonFSData()
+    }
+    function fetchAndRenderNonFSData() {
+      // Build query string from nonfsFilters
+      const params = new URLSearchParams();
+      if (nonfsFilters.relationship_type !== 'All') params.append('relationship_type', nonfsFilters.relationship_type);
+      if (nonfsFilters.driving !== 'All') params.append('driving', nonfsFilters.driving);
+      if (nonfsFilters.lag !== 'All') params.append('lag', nonfsFilters.lag);
+      if (nonfsFilters.free_float !== 'All') params.append('free_float', nonfsFilters.free_float);
+      // project_id left as All for now
+      fetch(`/api/typical-non-fs0d?${params.toString()}`)
+        .then(res => res.json())
+        .then(data => {
+          renderTypicalRelationshipsNonFS0dLag(data);
+        })
+        .catch(error => {
+          displayArea.innerHTML = '<span class="placeholder">Error loading data. Please try again.</span>';
+        });
+    }
+
+    // Populate FS+0d filter options
+    function populateFSFilterOptions() {
+      // Relationship Type - hardcoded for FS+0d (PR_FS and PR_FS1)
+      const fsRelationshipContainer = document.getElementById('fs-relationship-type-filters');
+      if (fsRelationshipContainer) {
+        fsRelationshipContainer.innerHTML = `
+          <button class="tr-filter-btn" data-filter-type="relationship_type" data-filter-value="PR_FS">PR_FS</button>
+          <button class="tr-filter-btn" data-filter-type="relationship_type" data-filter-value="PR_FS1">PR_FS1</button>
+          <button class="tr-filter-btn active" data-filter-type="relationship_type" data-filter-value="All">All</button>
+        `;
+        setActiveFSFilterBtn('relationship_type', fsFilters.relationship_type);
+        // Attach event listeners to relationship type buttons
+        fsRelationshipContainer.querySelectorAll('.tr-filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            fsRelationshipContainer.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            fsFilters.relationship_type = btn.dataset.filterValue;
+            fetchAndRenderFSData();
+          });
+        });
+      }
+
+      // Lag
+      fetch('/api/lag-options').then(res => res.json()).then(lags => {
+        const lagFilter = document.getElementById('fs-lagFilter');
+          if (lagFilter) {
+          lagFilter.innerHTML = '<option value="All">All</option>' + lags.map(lag => `<option value="${lag}">${lag}</option>`).join('');
+          lagFilter.value = fsFilters.lag;
+          // Attach event listener to lag dropdown
+          lagFilter.addEventListener('change', () => {
+            fsFilters.lag = lagFilter.value;
+            fetchAndRenderFSData();
+          });
+        }
+      });
+
+      // Free Float
+      fetch('/api/free-float-options').then(res => res.json()).then(freeFloats => {
+        const ffFilter = document.getElementById('fs-freeFloatFilter');
+        if (ffFilter) {
+          ffFilter.innerHTML = '<option value="All">All</option>' + freeFloats.map(ff => `<option value="${ff}">${ff}</option>`).join('');
+          ffFilter.value = fsFilters.free_float;
+          // Attach event listener to free float dropdown
+          ffFilter.addEventListener('change', () => {
+            fsFilters.free_float = ffFilter.value;
+            fetchAndRenderFSData();
+          });
+        }
+      });
+
+      // Driving - hardcoded options (Y, N, All)
+      const fsDrivingContainer = document.getElementById('fs-driving-filters');
+      if (fsDrivingContainer) {
+        fsDrivingContainer.innerHTML = `
+          <button class="tr-filter-btn" data-filter-type="driving" data-filter-value="Y">Y</button>
+          <button class="tr-filter-btn" data-filter-type="driving" data-filter-value="N">N</button>
+          <button class="tr-filter-btn active" data-filter-type="driving" data-filter-value="All">All</button>
+        `;
+        setActiveFSFilterBtn('driving', fsFilters.driving);
+        // Attach event listeners to driving buttons
+        fsDrivingContainer.querySelectorAll('.tr-filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            fsDrivingContainer.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            fsFilters.driving = btn.dataset.filterValue;
+            fetchAndRenderFSData();
+          });
+        });
+      }
+
+      // Project
+      fetch('/api/project-options').then(res => res.json()).then(projects => {
+        const projectFilter = document.getElementById('fs-projectFilter');
+          if (projectFilter) {
+          projectFilter.innerHTML = '<option value="All">All</option>' + projects.map(proj => `<option value="${proj}">${proj}</option>`).join('');
+          projectFilter.value = fsFilters.project_id;
+          // Attach event listener to project dropdown
+          projectFilter.addEventListener('change', () => {
+            fsFilters.project_id = projectFilter.value;
+            fetchAndRenderFSData();
+          });
+        }
+      });
+    }
+
+    function setActiveFSFilterBtn(type, value) {
+      document.querySelectorAll(`#fs-relationship-type-filters .tr-filter-btn[data-filter-type="${type}"], #fs-driving-filters .tr-filter-btn[data-filter-type="${type}"]`).forEach(btn => {
+        if (btn.dataset.filterValue === value) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+    }
+
+    // --- Leads Section ---
+    function renderLeadsSection() {
+      displayArea.innerHTML = '';
+      fetchAndRenderLeadsData();
+    }
+    
+    function fetchAndRenderLeadsData() {
+      // Build query string from leadsFilters
+      const params = new URLSearchParams();
+      if (leadsFilters.relationship_type !== 'All') params.append('relationship_type', leadsFilters.relationship_type);
+      if (leadsFilters.driving !== 'All') params.append('driving', leadsFilters.driving);
+      if (leadsFilters.lag !== 'All') params.append('lag', leadsFilters.lag);
+      if (leadsFilters.free_float !== 'All') params.append('free_float', leadsFilters.free_float);
+      // project_id left as All for now
+      const queryString = params.toString();
+      
+      Promise.all([
+        fetch(`/api/leads?${queryString}`).then(res => res.json()),
+        fetch(`/api/leads-kpi?${queryString}`).then(res => res.json()),
+        fetch(`/api/leads-chart-data?${queryString}`).then(res => res.json()),
+        fetch(`/api/leads-percentage-history?${queryString}`).then(res => res.json())
+      ])
+      .then(([tableData, kpiData, chartData, historyData]) => {
+        renderLeadsPage(tableData, kpiData, chartData, historyData);
+      })
+      .catch(error => {
+        displayArea.innerHTML = '<span class="placeholder">Error loading data. Please try again.</span>';
+      });
+    }
+
+    function renderLeadsPage(data, kpiData, chartData, historyData) {
+      // Use KPI data from the backend
+      const leadsCount = kpiData.Leads_Count || 0;
+      const remainingRelationships = kpiData.Remaining_Relationship_Count || 0;
+      const leadPercentage = kpiData.Lead_Percentage || 0;
+
+      // Export buttons
+      const exportBtns = `
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px;">
+          <button class="export-btn" id="exportTableCSV" aria-label="Export table as CSV">Export Table CSV</button>
+          <button class="export-btn" id="exportStackedPNG" aria-label="Download stacked chart as PNG">Download Stacked PNG</button>
+          <button class="export-btn" id="exportLinePNG" aria-label="Download line chart as PNG">Download Line PNG</button>
+        </div>
+      `;
+
+      const summary = `
+        <div class="tr-summary">
+          <div class="tr-card"><div class="tr-card-title">Leads Count</div><div class="tr-card-value">${formatNumber(leadsCount)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Remaining Relationships</div><div class="tr-card-value">${formatNumber(remainingRelationships)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Lead %</div><div class="tr-card-value">${leadPercentage}%</div></div>
+        </div>
+      `;
+
+      // Filter Bar - with placeholders for now
+      const filters = `
+        <div class="tr-filters" style="background:#b3e0fc;padding:8px 4px 4px 4px;border-radius:8px 8px 0 0;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-evenly;align-items:flex-end;flex-wrap:nowrap;width:100%;">
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Type</span>
+              <div id="leads-relationship-type-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Lag</span>
+              <select id="leads-lagFilter" class="tr-filter-dropdown" data-filter-type="lag" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:80px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Free Float</span>
+              <select id="leads-freeFloatFilter" class="tr-filter-dropdown" data-filter-type="free_float" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Status</span>
+              <div style="display:flex;gap:2px;">
+                <div class="tr-filter" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">Incomplete</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Driving</span>
+              <div id="leads-driving-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Project</span>
+              <select id="leads-projectFilter" class="tr-filter-dropdown" data-filter-type="project_id" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Charts - stacked column chart and line chart
+      const charts = `
+        <div class="tr-charts" style="justify-content:center;display:flex;gap:32px;">
+          <div class="tr-chart"><canvas id="stackedChart" height="165"></canvas></div>
+          <div class="tr-chart"><canvas id="lineChart" height="165"></canvas></div>
+        </div>
+      `;
+
+      // Table (show only first 20 rows)
+      let table = '';
+      if (data.length === 0) {
+        table = '<div class="tr-table-container"><p class="placeholder" style="text-align:center; padding: 20px;">No table data found for the selected filters.</p></div>';
+      } else {
+        table = `<div class="tr-table-container"><table class="tr-table" id="trTable" aria-label="Leads data table"><thead><tr>
+        <th tabindex="0" aria-label="Sort by Pred. ID">Pred. ID</th>
+        <th tabindex="0" aria-label="Sort by Succ. ID">Succ. ID</th>
+        <th tabindex="0" aria-label="Sort by Pred. Name">Pred. Name</th>
+        <th tabindex="0" aria-label="Sort by Succ. Name">Succ. Name</th>
+        <th tabindex="0" aria-label="Sort by Relationship type">Relationship type</th>
+        <th tabindex="0" aria-label="Sort by Lag">Lag</th>
+        <th tabindex="0" aria-label="Sort by Lead">Lead</th>
+        <th tabindex="0" aria-label="Sort by Excessive Lag">Excessive Lag</th>
+        <th tabindex="0" aria-label="Sort by Driving">Driving</th>
+        <th tabindex="0" aria-label="Sort by FreeFloat">FreeFloat</th>
+        <th tabindex="0" aria-label="Sort by Rel. Status">Rel. Status</th>
+      </tr></thead><tbody>`;
+        for (const row of data.slice(0, 20)) {
+          table += `<tr>
+          <td>${row["Pred. ID"]}</td>
+          <td>${row["Succ. ID"]}</td>
+          <td>${row["Pred. Name"]}</td>
+          <td>${row["Succ. Name"]}</td>
+          <td>${row["Relationship type"]}</td>
+          <td>${row["Lag"]}</td>
+          <td>${row["Lead"] || ''}</td>
+          <td>${row["ExcessiveLag"] || ''}</td>
+          <td>${row["Driving"]}</td>
+          <td>${row["FreeFloat"]}</td>
+          <td>${row["Relationship_Status"] || ''}</td>
+        </tr>`;
+        }
+        table += "</tbody></table></div>";
+      }
+
+      // Header
+      const header = `<div class="tr-header">Leads <span class="subtitle">No Lead Relationships Allowed (Weighting: 8%)</span></div>`;
+      displayArea.innerHTML = header + exportBtns + filters + summary + charts + table;
+
+      // Populate the filter options after rendering
+      setTimeout(() => {
+        populateLeadsFilterOptions();
+      }, 0);
+
+      // Table sorting logic
+      const trTable = document.getElementById('trTable');
+      if (trTable) {
+        let sortDir = 1;
+        let lastSortedCol = -1;
+        trTable.querySelectorAll('th').forEach((th, idx) => {
+          th.addEventListener('click', () => sortTable(idx));
+          th.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              sortTable(idx);
+            }
+          });
+        });
+        function sortTable(colIdx) {
+          const tbody = trTable.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          if (lastSortedCol === colIdx) sortDir *= -1; else sortDir = 1;
+          lastSortedCol = colIdx;
+          rows.sort((a, b) => {
+            const aText = a.children[colIdx].textContent.trim();
+            const bText = b.children[colIdx].textContent.trim();
+            if (!isNaN(aText) && !isNaN(bText)) {
+              return (Number(aText) - Number(bText)) * sortDir;
+            }
+            return aText.localeCompare(bText) * sortDir;
+          });
+          rows.forEach(row => tbody.appendChild(row));
+        }
+      }
+
+      // Export table as CSV
+      const exportTableBtn = document.getElementById('exportTableCSV');
+      if (exportTableBtn && trTable) {
+        exportTableBtn.addEventListener('click', () => {
+          let csv = '';
+          const rows = trTable.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cols = Array.from(row.querySelectorAll('th,td')).map(td => '"' + td.textContent.replace(/"/g, '""') + '"');
+            csv += cols.join(',') + '\n';
+          });
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'leads_data.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
+
+      // Chart.js color palette
+      const chartColors = {
+        blue: getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim() || '#007bff',
+        dark: getComputedStyle(document.documentElement).getPropertyValue('--secondary-blue').trim() || '#424770',
+        yellow: getComputedStyle(document.documentElement).getPropertyValue('--accent-yellow').trim() || '#ffc107',
+      };
+
+      // Store chart instances for cleanup
+      let leadsStackedChart = null;
+      let leadsLineChart = null;
+
+      setTimeout(() => {
+        // Stacked Column Chart (Lag vs Count by Relationship Type)
+        const stackedCtx = document.getElementById('stackedChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (leadsStackedChart) {
+          leadsStackedChart.destroy();
+        }
+
+        if (chartData.length === 0) {
+          stackedCtx.clearRect(0, 0, stackedCtx.canvas.width, stackedCtx.canvas.height);
+          stackedCtx.save();
+          stackedCtx.font = '14px Arial';
+          stackedCtx.fillStyle = '#666';
+          stackedCtx.textAlign = 'center';
+          stackedCtx.fillText('No data available', stackedCtx.canvas.width / 2, stackedCtx.canvas.height / 2);
+          stackedCtx.restore();
+      } else {
+          // Process chart data for stacked column chart
+          const lagValues = [...new Set(chartData.map(item => item.lag))].sort((a, b) => a - b);
+          const relationshipTypes = [...new Set(chartData.map(item => item.relationship_type))];
+          
+          const datasets = relationshipTypes.map((type, index) => {
+            const data = lagValues.map(lag => {
+              const item = chartData.find(d => d.lag === lag && d.relationship_type === type);
+              return item ? item.count : 0;
+            });
+            
+            return {
+              label: type,
+              data: data,
+              backgroundColor: index % 2 === 0 ? chartColors.blue : chartColors.dark,
+              borderWidth: 0
+            };
+          });
+
+          leadsStackedChart = new Chart(stackedCtx, {
+            type: 'bar',
+            data: {
+              labels: lagValues,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Lag vs Count by Relationship Type'
+                },
+                legend: {
+                  display: true,
+                  position: 'top'
+                }
+              },
+              scales: {
+                x: {
+                  stacked: true,
+                  title: {
+                    display: true,
+                    text: 'Lag'
+                  }
+                },
+                y: {
+                  stacked: true,
+                  title: {
+                    display: true,
+                    text: 'Count'
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        // Line Chart (Month vs Lead Percentage)
+        const lineCtx = document.getElementById('lineChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (leadsLineChart) {
+          leadsLineChart.destroy();
+        }
+
+        if (historyData.length === 0) {
+          lineCtx.clearRect(0, 0, lineCtx.canvas.width, lineCtx.canvas.height);
+          lineCtx.save();
+          lineCtx.font = '14px Arial';
+          lineCtx.fillStyle = '#666';
+          lineCtx.textAlign = 'center';
+          lineCtx.fillText('No historical data available', lineCtx.canvas.width / 2, lineCtx.canvas.height / 2);
+          lineCtx.restore();
+        } else {
+          leadsLineChart = new Chart(lineCtx, {
+            type: 'line',
+            data: {
+              labels: historyData.map(item => item.month),
+              datasets: [{
+                label: 'Lead Percentage',
+                data: historyData.map(item => item.percentage),
+                borderColor: chartColors.blue,
+                backgroundColor: chartColors.blue + '20',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Lead Percentage Over Time'
+                },
+                legend: {
+                  display: false
+                }
+              },
+              scales: {
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Month'
+                  }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: 'Percentage (%)'
+                  },
+                  beginAtZero: true
+                }
+              }
+            }
+          });
+        }
+      }, 100);
+    }
+
+    // Populate Leads filter options
+    function populateLeadsFilterOptions() {
+      // Relationship Type
+      fetch('/api/leads-relationship-type-options').then(res => res.json()).then(types => {
+        const container = document.getElementById('leads-relationship-type-filters');
+        if (container) {
+          container.innerHTML = types.map(type => `<button class="tr-filter-btn" data-filter-type="relationship_type" data-filter-value="${type}">${type}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="relationship_type" data-filter-value="All">All</button>`;
+          setActiveLeadsFilterBtn('relationship_type', leadsFilters.relationship_type);
+          // Attach event listeners to relationship type buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              leadsFilters.relationship_type = btn.dataset.filterValue;
+              fetchAndRenderLeadsData();
+            });
+          });
+        }
+      });
+      // Lag
+      fetch('/api/leads-lag-options').then(res => res.json()).then(lags => {
+        const lagFilter = document.getElementById('leads-lagFilter');
+        if (lagFilter) {
+          lagFilter.innerHTML = '<option value="All">All</option>' + lags.map(lag => `<option value="${lag}">${lag}</option>`).join('');
+          lagFilter.value = leadsFilters.lag;
+          // Attach event listener to lag dropdown
+          lagFilter.addEventListener('change', () => {
+            leadsFilters.lag = lagFilter.value;
+            fetchAndRenderLeadsData();
+          });
+        }
+      });
+      // Free Float
+      fetch('/api/leads-free-float-options').then(res => res.json()).then(freeFloats => {
+        const ffFilter = document.getElementById('leads-freeFloatFilter');
+        if (ffFilter) {
+          ffFilter.innerHTML = '<option value="All">All</option>' + freeFloats.map(ff => `<option value="${ff}">${ff}</option>`).join('');
+          ffFilter.value = leadsFilters.free_float;
+          // Attach event listener to free float dropdown
+          ffFilter.addEventListener('change', () => {
+            leadsFilters.free_float = ffFilter.value;
+            fetchAndRenderLeadsData();
+          });
+        }
+      });
+      // Driving
+      fetch('/api/leads-driving-options').then(res => res.json()).then(drivings => {
+        const container = document.getElementById('leads-driving-filters');
+        if (container) {
+          container.innerHTML = drivings.map(d => `<button class="tr-filter-btn" data-filter-type="driving" data-filter-value="${d}">${d}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="driving" data-filter-value="All">All</button>`;
+          setActiveLeadsFilterBtn('driving', leadsFilters.driving);
+          // Attach event listeners to driving buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              leadsFilters.driving = btn.dataset.filterValue;
+              fetchAndRenderLeadsData();
+            });
+          });
+        }
+      });
+    }
+
+    function setActiveLeadsFilterBtn(type, value) {
+      document.querySelectorAll(`#leads-relationship-type-filters .tr-filter-btn[data-filter-type="${type}"], #leads-driving-filters .tr-filter-btn[data-filter-type="${type}"]`).forEach(btn => {
+        if (btn.dataset.filterValue === value) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+    }
+
+    // --- Lags Section ---
+    function renderLagsSection() {
+      displayArea.innerHTML = '';
+      fetchAndRenderLagsData();
+    }
+    
+    function fetchAndRenderLagsData() {
+      // Build query string from lagsFilters
+      const params = new URLSearchParams();
+      if (lagsFilters.relationship_type !== 'All') params.append('relationship_type', lagsFilters.relationship_type);
+      if (lagsFilters.driving !== 'All') params.append('driving', lagsFilters.driving);
+      if (lagsFilters.lag !== 'All') params.append('lag', lagsFilters.lag);
+      if (lagsFilters.free_float !== 'All') params.append('free_float', lagsFilters.free_float);
+      // project_id left as All for now
+      const queryString = params.toString();
+      
+      Promise.all([
+        fetch(`/api/lags?${queryString}`).then(res => res.json()),
+        fetch(`/api/lags-kpi?${queryString}`).then(res => res.json()),
+        fetch(`/api/lags-chart-data?${queryString}`).then(res => res.json()),
+        fetch(`/api/lags-percentage-history?${queryString}`).then(res => res.json())
+      ])
+      .then(([tableData, kpiData, chartData, historyData]) => {
+        renderLagsPage(tableData, kpiData, chartData, historyData);
+      })
+      .catch(error => {
+        console.error("Error loading lags data:", error);
+        displayArea.innerHTML = '<span class="placeholder">Error loading data. Please try again.</span>';
+      });
+    }
+
+    function renderLagsPage(data, kpiData, chartData, historyData) {
+      // Use KPI data from the backend
+      const lagCount = kpiData.Lag_Count || 0;
+      const remainingRelationships = kpiData.Remaining_Relationships || 0;
+      const lagPercentage = kpiData.Lag_Percentage || 0;
+
+      // Export buttons
+      const exportBtns = `
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px;">
+          <button class="export-btn" id="exportTableCSV" aria-label="Export table as CSV">Export Table CSV</button>
+          <button class="export-btn" id="exportStackedPNG" aria-label="Download stacked chart as PNG">Download Stacked PNG</button>
+          <button class="export-btn" id="exportLinePNG" aria-label="Download line chart as PNG">Download Line PNG</button>
+        </div>
+      `;
+
+      const summary = `
+        <div class="tr-summary">
+          <div class="tr-card"><div class="tr-card-title">Lag Count</div><div class="tr-card-value">${formatNumber(lagCount)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Remaining Relationships</div><div class="tr-card-value">${formatNumber(remainingRelationships)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Lag %</div><div class="tr-card-value">${lagPercentage}%</div></div>
+        </div>
+      `;
+
+      // Filter Bar
+      const filters = `
+        <div class="tr-filters" style="background:#b3e0fc;padding:8px 4px 4px 4px;border-radius:8px 8px 0 0;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-evenly;align-items:flex-end;flex-wrap:nowrap;width:100%;">
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Type</span>
+              <div id="lags-relationship-type-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Lag</span>
+              <select id="lags-lagFilter" class="tr-filter-dropdown" data-filter-type="lag" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:80px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Free Float</span>
+              <select id="lags-freeFloatFilter" class="tr-filter-dropdown" data-filter-type="free_float" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Status</span>
+              <div style="display:flex;gap:2px;">
+                <div class="tr-filter" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">Incomplete</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Driving</span>
+              <div id="lags-driving-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Project</span>
+              <select id="lags-projectFilter" class="tr-filter-dropdown" data-filter-type="project_id" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Charts - stacked column chart and line chart
+      const charts = `
+        <div class="tr-charts" style="justify-content:center;display:flex;gap:32px;">
+          <div class="tr-chart"><canvas id="lagsStackedChart" height="165"></canvas></div>
+          <div class="tr-chart"><canvas id="lagsLineChart" height="165"></canvas></div>
+        </div>
+      `;
+
+      // Table (show only first 20 rows)
+      let table = '';
+      if (data.length === 0) {
+        table = '<div class="tr-table-container"><p class="placeholder" style="text-align:center; padding: 20px;">No table data found for the selected filters.</p></div>';
+      } else {
+        table = `<div class="tr-table-container"><table class="tr-table" id="trTable" aria-label="Lags data table"><thead><tr>
+        <th tabindex="0" aria-label="Sort by Pred. ID">Pred. ID</th>
+        <th tabindex="0" aria-label="Sort by Succ. ID">Succ. ID</th>
+        <th tabindex="0" aria-label="Sort by Pred. Name">Pred. Name</th>
+        <th tabindex="0" aria-label="Sort by Succ. Name">Succ. Name</th>
+        <th tabindex="0" aria-label="Sort by Relationship type">Relationship type</th>
+        <th tabindex="0" aria-label="Sort by Lag">Lag</th>
+        <th tabindex="0" aria-label="Sort by Lead">Lead</th>
+        <th tabindex="0" aria-label="Sort by Excessive Lag">Excessive Lag</th>
+        <th tabindex="0" aria-label="Sort by Driving">Driving</th>
+        <th tabindex="0" aria-label="Sort by FreeFloat">FreeFloat</th>
+        <th tabindex="0" aria-label="Sort by Rel. Status">Rel. Status</th>
+      </tr></thead><tbody>`;
+        for (const row of data.slice(0, 20)) {
+          table += `<tr>
+          <td>${row["Pred. ID"]}</td>
+          <td>${row["Succ. ID"]}</td>
+          <td>${row["Pred. Name"]}</td>
+          <td>${row["Succ. Name"]}</td>
+          <td>${row["Relationship type"]}</td>
+          <td>${row["Lag"]}</td>
+          <td>${row["Lead"] || ''}</td>
+          <td>${row["ExcessiveLag"] || ''}</td>
+          <td>${row["Driving"]}</td>
+          <td>${row["FreeFloat"]}</td>
+          <td>${row["Relationship_Status"] || ''}</td>
+        </tr>`;
+        }
+        table += "</tbody></table></div>";
+      }
+
+      // Header
+      const header = `<div class="tr-header">Lags <span class="subtitle">Less Than 10% of Rem. Relationships Can Contain Lags (Weighting: 5%)</span></div>`;
+      displayArea.innerHTML = header + exportBtns + filters + summary + charts + table;
+
+      // Populate the filter options after rendering
+      setTimeout(() => {
+        populateLagsFilterOptions();
+      }, 0);
+
+      // Table sorting logic
+      const trTable = document.getElementById('trTable');
+      if (trTable) {
+        let sortDir = 1;
+        let lastSortedCol = -1;
+        trTable.querySelectorAll('th').forEach((th, idx) => {
+          th.addEventListener('click', () => sortTable(idx));
+          th.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              sortTable(idx);
+            }
+          });
+        });
+        function sortTable(colIdx) {
+          const tbody = trTable.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          if (lastSortedCol === colIdx) sortDir *= -1; else sortDir = 1;
+          lastSortedCol = colIdx;
+          rows.sort((a, b) => {
+            const aText = a.children[colIdx].textContent.trim();
+            const bText = b.children[colIdx].textContent.trim();
+            if (!isNaN(aText) && !isNaN(bText)) {
+              return (Number(aText) - Number(bText)) * sortDir;
+            }
+            return aText.localeCompare(bText) * sortDir;
+          });
+          rows.forEach(row => tbody.appendChild(row));
+        }
+      }
+
+      // Export table as CSV
+      const exportTableBtn = document.getElementById('exportTableCSV');
+      if (exportTableBtn && trTable) {
+        exportTableBtn.addEventListener('click', () => {
+          let csv = '';
+          const rows = trTable.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cols = Array.from(row.querySelectorAll('th,td')).map(td => '"' + td.textContent.replace(/"/g, '""') + '"');
+            csv += cols.join(',') + '\n';
+          });
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'lags_data.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
+
+      // Chart.js color palette
+      const chartColors = {
+        blue: getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim() || '#007bff',
+        dark: getComputedStyle(document.documentElement).getPropertyValue('--secondary-blue').trim() || '#424770',
+        yellow: getComputedStyle(document.documentElement).getPropertyValue('--accent-yellow').trim() || '#ffc107',
+      };
+
+      // Store chart instances for cleanup
+      let lagsStackedChart = null;
+      let lagsLineChart = null;
+
+      setTimeout(() => {
+        // Stacked Column Chart (Lag vs Count by Relationship Type)
+        const stackedCtx = document.getElementById('lagsStackedChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (lagsStackedChart) {
+          lagsStackedChart.destroy();
+        }
+
+        if (Object.keys(chartData).length === 0) {
+          stackedCtx.clearRect(0, 0, stackedCtx.canvas.width, stackedCtx.canvas.height);
+          stackedCtx.save();
+          stackedCtx.font = '14px Arial';
+          stackedCtx.fillStyle = '#666';
+          stackedCtx.textAlign = 'center';
+          stackedCtx.fillText('No data available', stackedCtx.canvas.width / 2, stackedCtx.canvas.height / 2);
+          stackedCtx.restore();
+        } else {
+          // Process chart data for stacked column chart
+          const lagValues = Object.keys(chartData).sort((a, b) => parseFloat(a) - parseFloat(b));
+          const relationshipTypes = [...new Set(Object.values(chartData).flatMap(obj => Object.keys(obj)))];
+          
+          const datasets = relationshipTypes.map((type, index) => {
+            const data = lagValues.map(lag => {
+              return chartData[lag] && chartData[lag][type] ? chartData[lag][type] : 0;
+            });
+            
+            return {
+              label: type,
+              data: data,
+              backgroundColor: index % 2 === 0 ? chartColors.blue : chartColors.dark,
+              borderWidth: 0
+            };
+          });
+
+          lagsStackedChart = new Chart(stackedCtx, {
+            type: 'bar',
+            data: {
+              labels: lagValues,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Lag vs Count by Relationship Type'
+                },
+                legend: {
+                  display: true,
+                  position: 'top'
+                }
+              },
+              scales: {
+                x: {
+                  stacked: true,
+                  title: {
+                    display: true,
+                    text: 'Lag'
+                  }
+                },
+                y: {
+                  stacked: true,
+                  title: {
+                    display: true,
+                    text: 'Count'
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        // Line Chart (Month vs Lag Percentage)
+        const lineCtx = document.getElementById('lagsLineChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (lagsLineChart) {
+          lagsLineChart.destroy();
+        }
+
+        if (historyData.length === 0) {
+          lineCtx.clearRect(0, 0, lineCtx.canvas.width, lineCtx.canvas.height);
+          lineCtx.save();
+          lineCtx.font = '14px Arial';
+          lineCtx.fillStyle = '#666';
+          lineCtx.textAlign = 'center';
+          lineCtx.fillText('No historical data available', lineCtx.canvas.width / 2, lineCtx.canvas.height / 2);
+          lineCtx.restore();
+        } else {
+          lagsLineChart = new Chart(lineCtx, {
+            type: 'line',
+            data: {
+              labels: historyData.map(item => item.month),
+              datasets: [{
+                label: 'Lag Percentage',
+                data: historyData.map(item => item.percentage),
+                borderColor: chartColors.blue,
+                backgroundColor: chartColors.blue + '20',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Lag Percentage Over Time'
+                },
+                legend: {
+                  display: false
+                }
+              },
+              scales: {
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Month'
+                  }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: 'Percentage (%)'
+                  },
+                  beginAtZero: true
+                }
+              }
+            }
+          });
+        }
+      }, 100);
+    }
+
+    // Populate Lags filter options
+    function populateLagsFilterOptions() {
+      // Relationship Type
+      fetch('/api/lags-relationship-type-options').then(res => res.json()).then(types => {
+        const container = document.getElementById('lags-relationship-type-filters');
+        if (container) {
+          container.innerHTML = types.map(type => `<button class="tr-filter-btn" data-filter-type="relationship_type" data-filter-value="${type}">${type}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="relationship_type" data-filter-value="All">All</button>`;
+          setActiveLagsFilterBtn('relationship_type', lagsFilters.relationship_type);
+          // Attach event listeners to relationship type buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              lagsFilters.relationship_type = btn.dataset.filterValue;
+              fetchAndRenderLagsData();
+            });
+          });
+        }
+      });
+      // Lag
+      fetch('/api/lags-lag-options').then(res => res.json()).then(lags => {
+        const lagFilter = document.getElementById('lags-lagFilter');
+        if (lagFilter) {
+          lagFilter.innerHTML = '<option value="All">All</option>' + lags.map(lag => `<option value="${lag}">${lag}</option>`).join('');
+          lagFilter.value = lagsFilters.lag;
+          // Attach event listener to lag dropdown
+          lagFilter.addEventListener('change', () => {
+            lagsFilters.lag = lagFilter.value;
+            fetchAndRenderLagsData();
+          });
+        }
+      });
+      // Free Float
+      fetch('/api/lags-free-float-options').then(res => res.json()).then(freeFloats => {
+        const ffFilter = document.getElementById('lags-freeFloatFilter');
+        if (ffFilter) {
+          ffFilter.innerHTML = '<option value="All">All</option>' + freeFloats.map(ff => `<option value="${ff}">${ff}</option>`).join('');
+          ffFilter.value = lagsFilters.free_float;
+          // Attach event listener to free float dropdown
+          ffFilter.addEventListener('change', () => {
+            lagsFilters.free_float = ffFilter.value;
+            fetchAndRenderLagsData();
+          });
+        }
+      });
+      // Driving
+      fetch('/api/lags-driving-options').then(res => res.json()).then(drivings => {
+        const container = document.getElementById('lags-driving-filters');
+        if (container) {
+          container.innerHTML = drivings.map(d => `<button class="tr-filter-btn" data-filter-type="driving" data-filter-value="${d}">${d}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="driving" data-filter-value="All">All</button>`;
+          setActiveLagsFilterBtn('driving', lagsFilters.driving);
+          // Attach event listeners to driving buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              lagsFilters.driving = btn.dataset.filterValue;
+              fetchAndRenderLagsData();
+            });
+          });
+        }
+      });
+    }
+
+    function setActiveLagsFilterBtn(type, value) {
+      document.querySelectorAll(`#lags-relationship-type-filters .tr-filter-btn[data-filter-type="${type}"], #lags-driving-filters .tr-filter-btn[data-filter-type="${type}"]`).forEach(btn => {
+        if (btn.dataset.filterValue === value) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+    }
+
+    // --- Excessive Lags Section ---
+    function renderExcessiveLagsSection() {
+      displayArea.innerHTML = '';
+      fetchAndRenderExcessiveLagsData();
+    }
+    
+    function fetchAndRenderExcessiveLagsData() {
+      // Build query string from excessiveLagsFilters
+      const params = new URLSearchParams();
+      if (excessiveLagsFilters.relationship_type !== 'All') params.append('relationship_type', excessiveLagsFilters.relationship_type);
+      if (excessiveLagsFilters.driving !== 'All') params.append('driving', excessiveLagsFilters.driving);
+      if (excessiveLagsFilters.lag !== 'All') params.append('lag', excessiveLagsFilters.lag);
+      if (excessiveLagsFilters.free_float !== 'All') params.append('free_float', excessiveLagsFilters.free_float);
+      // project_id left as All for now
+      const queryString = params.toString();
+      
+      Promise.all([
+        fetch(`/api/excessive-lags?${queryString}`).then(res => res.json()),
+        fetch(`/api/excessive-lags-kpi?${queryString}`).then(res => res.json()),
+        fetch(`/api/excessive-lags-chart-data?${queryString}`).then(res => res.json()),
+        fetch(`/api/excessive-lags-percentage-history?${queryString}`).then(res => res.json())
+      ])
+      .then(([tableData, kpiData, chartData, historyData]) => {
+        renderExcessiveLagsPage(tableData, kpiData, chartData, historyData);
+      })
+      .catch(error => {
+        console.error("Error loading excessive lags data:", error);
+        displayArea.innerHTML = '<span class="placeholder">Error loading data. Please try again.</span>';
+      });
+    }
+
+    function renderExcessiveLagsPage(data, kpiData, chartData, historyData) {
+      // Use KPI data from the backend
+      const lagCount = kpiData.Lag_Count || 0;
+      const remainingRelationships = kpiData.Remaining_Relationships || 0;
+      const lagPercentage = kpiData.Lag_Percentage || 0;
+
+      // Export buttons
+      const exportBtns = `
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px;">
+          <button class="export-btn" id="exportTableCSV" aria-label="Export table as CSV">Export Table CSV</button>
+          <button class="export-btn" id="exportStackedPNG" aria-label="Download stacked chart as PNG">Download Stacked PNG</button>
+          <button class="export-btn" id="exportLinePNG" aria-label="Download line chart as PNG">Download Line PNG</button>
+        </div>
+      `;
+
+      const summary = `
+        <div class="tr-summary">
+          <div class="tr-card"><div class="tr-card-title">Lag Count</div><div class="tr-card-value">${formatNumber(lagCount)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Remaining Relationships</div><div class="tr-card-value">${formatNumber(remainingRelationships)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Lag %</div><div class="tr-card-value">${lagPercentage}%</div></div>
+        </div>
+      `;
+
+      // Filter Bar
+      const filters = `
+        <div class="tr-filters" style="background:#b3e0fc;padding:8px 4px 4px 4px;border-radius:8px 8px 0 0;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-evenly;align-items:flex-end;flex-wrap:nowrap;width:100%;">
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Type</span>
+              <div id="excessive-lags-relationship-type-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Lag</span>
+              <select id="excessive-lags-lagFilter" class="tr-filter-dropdown" data-filter-type="lag" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:80px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Free Float</span>
+              <select id="excessive-lags-freeFloatFilter" class="tr-filter-dropdown" data-filter-type="free_float" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Status</span>
+              <div style="display:flex;gap:2px;">
+                <div class="tr-filter" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">Incomplete</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Excessive Lag</span>
+              <div style="display:flex;gap:2px;">
+                <div class="tr-filter" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">Excessive Lag</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Driving</span>
+              <div id="excessive-lags-driving-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Project</span>
+              <select id="excessive-lags-projectFilter" class="tr-filter-dropdown" data-filter-type="project_id" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Charts - stacked column chart and line chart
+      const charts = `
+        <div class="tr-charts" style="justify-content:center;display:flex;gap:32px;">
+          <div class="tr-chart"><canvas id="excessiveLagsStackedChart" height="165"></canvas></div>
+          <div class="tr-chart"><canvas id="excessiveLagsLineChart" height="165"></canvas></div>
+        </div>
+      `;
+
+      // Table (show only first 20 rows)
+      let table = '';
+      if (data.length === 0) {
+        table = '<div class="tr-table-container"><p class="placeholder" style="text-align:center; padding: 20px;">No table data found for the selected filters.</p></div>';
+      } else {
+        table = `<div class="tr-table-container"><table class="tr-table" id="trTable" aria-label="Excessive Lags data table"><thead><tr>
+        <th tabindex="0" aria-label="Sort by Pred. ID">Pred. ID</th>
+        <th tabindex="0" aria-label="Sort by Succ. ID">Succ. ID</th>
+        <th tabindex="0" aria-label="Sort by Pred. Name">Pred. Name</th>
+        <th tabindex="0" aria-label="Sort by Succ. Name">Succ. Name</th>
+        <th tabindex="0" aria-label="Sort by Relationship type">Relationship type</th>
+        <th tabindex="0" aria-label="Sort by Lag">Lag</th>
+        <th tabindex="0" aria-label="Sort by Lead">Lead</th>
+        <th tabindex="0" aria-label="Sort by Excessive Lag">Excessive Lag</th>
+        <th tabindex="0" aria-label="Sort by Driving">Driving</th>
+        <th tabindex="0" aria-label="Sort by FreeFloat">FreeFloat</th>
+        <th tabindex="0" aria-label="Sort by Rel. Status">Rel. Status</th>
+      </tr></thead><tbody>`;
+        for (const row of data.slice(0, 20)) {
+          table += `<tr>
+          <td>${row["Pred. ID"]}</td>
+          <td>${row["Succ. ID"]}</td>
+          <td>${row["Pred. Name"]}</td>
+          <td>${row["Succ. Name"]}</td>
+          <td>${row["Relationship type"]}</td>
+          <td>${row["Lag"]}</td>
+          <td>${row["Lead"] || ''}</td>
+          <td>${row["ExcessiveLag"] || ''}</td>
+          <td>${row["Driving"]}</td>
+          <td>${row["FreeFloat"]}</td>
+          <td>${row["Relationship_Status"] || ''}</td>
+        </tr>`;
+        }
+        table += "</tbody></table></div>";
+      }
+
+      // Header
+      const header = `<div class="tr-header">Excessive Lags <span class="subtitle">Less Than 10% of Rem. Relationships Can Contain Excessive Lags (Weighting: 10%)</span></div>`;
+      displayArea.innerHTML = header + exportBtns + filters + summary + charts + table;
+
+      // Populate the filter options after rendering
+      setTimeout(() => {
+        populateExcessiveLagsFilterOptions();
+      }, 0);
+
+      // Table sorting logic
+      const trTable = document.getElementById('trTable');
+      if (trTable) {
+        let sortDir = 1;
+        let lastSortedCol = -1;
+        trTable.querySelectorAll('th').forEach((th, idx) => {
+          th.addEventListener('click', () => sortTable(idx));
+          th.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              sortTable(idx);
+            }
+          });
+        });
+        function sortTable(colIdx) {
+          const tbody = trTable.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          if (lastSortedCol === colIdx) sortDir *= -1; else sortDir = 1;
+          lastSortedCol = colIdx;
+          rows.sort((a, b) => {
+            const aText = a.children[colIdx].textContent.trim();
+            const bText = b.children[colIdx].textContent.trim();
+            if (!isNaN(aText) && !isNaN(bText)) {
+              return (Number(aText) - Number(bText)) * sortDir;
+            }
+            return aText.localeCompare(bText) * sortDir;
+          });
+          rows.forEach(row => tbody.appendChild(row));
+        }
+      }
+
+      // Export table as CSV
+      const exportTableBtn = document.getElementById('exportTableCSV');
+      if (exportTableBtn && trTable) {
+        exportTableBtn.addEventListener('click', () => {
+          let csv = '';
+          const rows = trTable.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cols = Array.from(row.querySelectorAll('th,td')).map(td => '"' + td.textContent.replace(/"/g, '""') + '"');
+            csv += cols.join(',') + '\n';
+          });
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'excessive_lags_data.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
+
+      // Chart.js color palette
+      const chartColors = {
+        blue: getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim() || '#007bff',
+        dark: getComputedStyle(document.documentElement).getPropertyValue('--secondary-blue').trim() || '#424770',
+        yellow: getComputedStyle(document.documentElement).getPropertyValue('--accent-yellow').trim() || '#ffc107',
+      };
+
+      // Store chart instances for cleanup
+      let excessiveLagsStackedChart = null;
+      let excessiveLagsLineChart = null;
+
+      setTimeout(() => {
+        // Stacked Column Chart (Lag vs Count by Relationship Type)
+        const stackedCtx = document.getElementById('excessiveLagsStackedChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (excessiveLagsStackedChart) {
+          excessiveLagsStackedChart.destroy();
+        }
+
+        if (Object.keys(chartData).length === 0) {
+          stackedCtx.clearRect(0, 0, stackedCtx.canvas.width, stackedCtx.canvas.height);
+          stackedCtx.save();
+          stackedCtx.font = '14px Arial';
+          stackedCtx.fillStyle = '#666';
+          stackedCtx.textAlign = 'center';
+          stackedCtx.fillText('No data available', stackedCtx.canvas.width / 2, stackedCtx.canvas.height / 2);
+          stackedCtx.restore();
+        } else {
+          // Process chart data for stacked column chart
+          const lagValues = Object.keys(chartData).sort((a, b) => parseFloat(a) - parseFloat(b));
+          const relationshipTypes = [...new Set(Object.values(chartData).flatMap(obj => Object.keys(obj)))];
+          
+          const datasets = relationshipTypes.map((type, index) => {
+            const data = lagValues.map(lag => {
+              return chartData[lag] && chartData[lag][type] ? chartData[lag][type] : 0;
+            });
+            
+            return {
+              label: type,
+              data: data,
+              backgroundColor: index % 2 === 0 ? chartColors.blue : chartColors.dark,
+              borderWidth: 0
+            };
+          });
+
+          excessiveLagsStackedChart = new Chart(stackedCtx, {
+            type: 'bar',
+            data: {
+              labels: lagValues,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Lag vs Count by Relationship Type'
+                },
+                legend: {
+                  display: true,
+                  position: 'top'
+                }
+              },
+              scales: {
+                x: {
+                  stacked: true,
+                  title: {
+                    display: true,
+                    text: 'Lag'
+                  }
+                },
+                y: {
+                  stacked: true,
+                  title: {
+                    display: true,
+                    text: 'Count'
+                  }
+                }
+              }
+            }
+          });
+        }
+
+        // Line Chart (Month vs Lag Percentage)
+        const lineCtx = document.getElementById('excessiveLagsLineChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (excessiveLagsLineChart) {
+          excessiveLagsLineChart.destroy();
+        }
+
+        if (historyData.length === 0) {
+          lineCtx.clearRect(0, 0, lineCtx.canvas.width, lineCtx.canvas.height);
+          lineCtx.save();
+          lineCtx.font = '14px Arial';
+          lineCtx.fillStyle = '#666';
+          lineCtx.textAlign = 'center';
+          lineCtx.fillText('No historical data available', lineCtx.canvas.width / 2, lineCtx.canvas.height / 2);
+          lineCtx.restore();
+        } else {
+          excessiveLagsLineChart = new Chart(lineCtx, {
+            type: 'line',
+            data: {
+              labels: historyData.map(item => item.month),
+              datasets: [{
+                label: 'Lag Percentage',
+                data: historyData.map(item => item.percentage),
+                borderColor: chartColors.blue,
+                backgroundColor: chartColors.blue + '20',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Excessive Lag Percentage Over Time'
+                },
+                legend: {
+                  display: false
+                }
+              },
+              scales: {
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Month'
+                  }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: 'Percentage (%)'
+                  },
+                  beginAtZero: true
+                }
+              }
+            }
+          });
+        }
+      }, 100);
+    }
+
+    // Populate Excessive Lags filter options
+    function populateExcessiveLagsFilterOptions() {
+      // Relationship Type
+      fetch('/api/excessive-lags-relationship-type-options').then(res => res.json()).then(types => {
+        const container = document.getElementById('excessive-lags-relationship-type-filters');
+        if (container) {
+          container.innerHTML = types.map(type => `<button class="tr-filter-btn" data-filter-type="relationship_type" data-filter-value="${type}">${type}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="relationship_type" data-filter-value="All">All</button>`;
+          setActiveExcessiveLagsFilterBtn('relationship_type', excessiveLagsFilters.relationship_type);
+          // Attach event listeners to relationship type buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              excessiveLagsFilters.relationship_type = btn.dataset.filterValue;
+              fetchAndRenderExcessiveLagsData();
+            });
+          });
+        }
+      });
+      // Lag
+      fetch('/api/excessive-lags-lag-options').then(res => res.json()).then(lags => {
+        const lagFilter = document.getElementById('excessive-lags-lagFilter');
+        if (lagFilter) {
+          lagFilter.innerHTML = '<option value="All">All</option>' + lags.map(lag => `<option value="${lag}">${lag}</option>`).join('');
+          lagFilter.value = excessiveLagsFilters.lag;
+          // Attach event listener to lag dropdown
+          lagFilter.addEventListener('change', () => {
+            excessiveLagsFilters.lag = lagFilter.value;
+            fetchAndRenderExcessiveLagsData();
+          });
+        }
+      });
+      // Free Float
+      fetch('/api/excessive-lags-free-float-options').then(res => res.json()).then(freeFloats => {
+        const ffFilter = document.getElementById('excessive-lags-freeFloatFilter');
+        if (ffFilter) {
+          ffFilter.innerHTML = '<option value="All">All</option>' + freeFloats.map(ff => `<option value="${ff}">${ff}</option>`).join('');
+          ffFilter.value = excessiveLagsFilters.free_float;
+          // Attach event listener to free float dropdown
+          ffFilter.addEventListener('change', () => {
+            excessiveLagsFilters.free_float = ffFilter.value;
+            fetchAndRenderExcessiveLagsData();
+          });
+        }
+      });
+      // Driving
+      fetch('/api/excessive-lags-driving-options').then(res => res.json()).then(drivings => {
+        const container = document.getElementById('excessive-lags-driving-filters');
+        if (container) {
+          container.innerHTML = drivings.map(d => `<button class="tr-filter-btn" data-filter-type="driving" data-filter-value="${d}">${d}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="driving" data-filter-value="All">All</button>`;
+          setActiveExcessiveLagsFilterBtn('driving', excessiveLagsFilters.driving);
+          // Attach event listeners to driving buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              excessiveLagsFilters.driving = btn.dataset.filterValue;
+              fetchAndRenderExcessiveLagsData();
+            });
+          });
+        }
+      });
+    }
+
+    function setActiveExcessiveLagsFilterBtn(type, value) {
+      document.querySelectorAll(`#excessive-lags-relationship-type-filters .tr-filter-btn[data-filter-type="${type}"], #excessive-lags-driving-filters .tr-filter-btn[data-filter-type="${type}"]`).forEach(btn => {
+        if (btn.dataset.filterValue === value) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+    }
+
+    // Helper function to format numbers
+    function formatNumber(num) {
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+      } else if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+      }
+      return num;
+    }
+
+    function renderTypicalRelationshipsFS0dLag(data, kpiData, relationshipTypeCounts, relationshipHistoryData) {
+      // Placeholders for summary cards
+      const totalRelationships = kpiData.Total_Relationship_Count || 0;
+      const remainingRelationships = kpiData.Remaining_Relationship_Count || 0;
+      const lagCount = kpiData.Lag_Count || 0;
+
+      // Export buttons
+      const exportBtns = `
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px;">
+          <button class="export-btn" id="exportTableCSV" aria-label="Export table as CSV">Export Table CSV</button>
+          <button class="export-btn" id="exportDonutPNG" aria-label="Download donut chart as PNG">Download Donut PNG</button>
+          <button class="export-btn" id="exportLinePNG" aria-label="Download line chart as PNG">Download Line PNG</button>
+        </div>
+      `;
+
+      const summary = `
+        <div class="tr-summary">
+          <div class="tr-card"><div class="tr-card-title">Relationships</div><div class="tr-card-value">${formatNumber(totalRelationships)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Remaining Relationships</div><div class="tr-card-value">${formatNumber(remainingRelationships)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Lags</div><div class="tr-card-value">${formatNumber(lagCount)}</div></div>
+        </div>
+      `;
+      // Placeholders for filter bar with headings
+      const filters = `
+        <div class="tr-filters" style="background:#b3e0fc;padding:8px 4px 4px 4px;border-radius:8px 8px 0 0;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-evenly;align-items:flex-end;flex-wrap:nowrap;width:100%;">
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Type</span>
+              <div id="fs-relationship-type-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Lag</span>
+              <select id="fs-lagFilter" class="tr-filter-dropdown" data-filter-type="lag" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:80px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Free Float</span>
+              <select id="fs-freeFloatFilter" class="tr-filter-dropdown" data-filter-type="free_float" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Status</span>
+              <div style="display:flex;gap:2px;">
+                <div class="tr-filter" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">Incomplete</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Driving</span>
+              <div id="fs-driving-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Project</span>
+              <select id="fs-projectFilter" class="tr-filter-dropdown" data-filter-type="project_id" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+      // Placeholders for charts
+      const charts = `
+        <div class="tr-charts" style="justify-content:center;display:flex;gap:32px;">
+          <div class="tr-chart"><canvas id="donutChart" height="165"></canvas></div>
+          <div class="tr-chart"><canvas id="lineChart" height="165"></canvas></div>
+        </div>
+      `;
+      // Table (show only first 20 rows)
+      let table = '';
+      if (data.length === 0) {
+        table = '<div class="tr-table-container"><p class="placeholder" style="text-align:center; padding: 20px;">No table data found for the selected filters.</p></div>';
+      } else {
+        table = `<div class="tr-table-container"><table class="tr-table" id="trTable" aria-label="Relationships data table"><thead><tr>
+        <th tabindex="0" aria-label="Sort by Pred. ID">Pred. ID</th>
+        <th tabindex="0" aria-label="Sort by Succ. ID">Succ. ID</th>
+        <th tabindex="0" aria-label="Sort by Pred. Name">Pred. Name</th>
+        <th tabindex="0" aria-label="Sort by Succ. Name">Succ. Name</th>
+        <th tabindex="0" aria-label="Sort by Relationship type">Relationship type</th>
+        <th tabindex="0" aria-label="Sort by Lag">Lag</th>
+        <th tabindex="0" aria-label="Sort by Lead">Lead</th>
+        <th tabindex="0" aria-label="Sort by Excessive Lag">Excessive Lag</th>
+        <th tabindex="0" aria-label="Sort by Driving">Driving</th>
+        <th tabindex="0" aria-label="Sort by FreeFloat">FreeFloat</th>
+        <th tabindex="0" aria-label="Sort by Rel. Status">Rel. Status</th>
+      </tr></thead><tbody>`;
+        for (const row of data) {
+          table += `<tr>
+          <td>${row["Pred. ID"]}</td>
+          <td>${row["Succ. ID"]}</td>
+          <td>${row["Pred. Name"]}</td>
+          <td>${row["Succ. Name"]}</td>
+          <td>${row["Relationship type"]}</td>
+          <td>${row["Lag"]}</td>
+          <td>${row["Lead"] || ''}</td>
+          <td>${row["ExcessiveLag"] || ''}</td>
+          <td>${row["Driving"]}</td>
+          <td>${row["FreeFloat"]}</td>
+          <td>${row["Relationship_Status"] || ''}</td>
+        </tr>`;
+        }
+        table += "</tbody></table></div>";
+      }
+      // Header
+      const header = `<div class="tr-header">Typical Relationships <span class="subtitle">90% of relationships contain FS+0d Lag Logic (Weighting: 5%)</span></div>`;
+      displayArea.innerHTML = header + exportBtns + filters + summary + charts + table;
+
+      // Populate the filter options after rendering
+      setTimeout(() => {
+        populateFSFilterOptions();
+      }, 0);
+
+      // Table sorting logic
+      const trTable = document.getElementById('trTable');
+      if (trTable) {
+        let sortDir = 1;
+        let lastSortedCol = -1;
+        trTable.querySelectorAll('th').forEach((th, idx) => {
+          th.addEventListener('click', () => sortTable(idx));
+          th.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              sortTable(idx);
+            }
+          });
+        });
+        function sortTable(colIdx) {
+          const tbody = trTable.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          if (lastSortedCol === colIdx) sortDir *= -1; else sortDir = 1;
+          lastSortedCol = colIdx;
+          rows.sort((a, b) => {
+            const aText = a.children[colIdx].textContent.trim();
+            const bText = b.children[colIdx].textContent.trim();
+            if (!isNaN(aText) && !isNaN(bText)) {
+              return (Number(aText) - Number(bText)) * sortDir;
+            }
+            return aText.localeCompare(bText) * sortDir;
+          });
+          rows.forEach(row => tbody.appendChild(row));
+        }
+      }
+
+      // Export table as CSV
+      const exportTableBtn = document.getElementById('exportTableCSV');
+      if (exportTableBtn && trTable) {
+        exportTableBtn.addEventListener('click', () => {
+          let csv = '';
+          const rows = trTable.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cols = Array.from(row.querySelectorAll('th,td')).map(td => '"' + td.textContent.replace(/"/g, '""') + '"');
+            csv += cols.join(',') + '\n';
+          });
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'relationships_data.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
+
+      // Chart.js color palette
+      const chartColors = {
+        blue: getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim() || '#007bff',
+        dark: getComputedStyle(document.documentElement).getPropertyValue('--secondary-blue').trim() || '#424770',
+        yellow: getComputedStyle(document.documentElement).getPropertyValue('--accent-yellow').trim() || '#ffc107',
+      };
+
+      setTimeout(() => {
+        // Donut chart (use relationshipTypeCounts parameter)
+        const donutCtx = document.getElementById('donutChart').getContext('2d');
+        const donutLabels = Object.keys(relationshipTypeCounts);
+        const donutData = Object.values(relationshipTypeCounts);
+        
+        // Handle empty data case
+        if (donutLabels.length === 0 || donutData.every(val => val === 0)) {
+          // Clear the chart area and show "No data" message
+          donutCtx.clearRect(0, 0, donutCtx.canvas.width, donutCtx.canvas.height);
+          donutCtx.save();
+          donutCtx.font = '14px Arial';
+          donutCtx.fillStyle = '#666';
+          donutCtx.textAlign = 'center';
+          donutCtx.fillText('No data available for selected filters', donutCtx.canvas.width / 2, donutCtx.canvas.height / 2);
+          donutCtx.restore();
+          return;
+        }
+        
+        const donutChart = new Chart(donutCtx, {
+          type: 'doughnut',
+          data: {
+            labels: donutLabels,
+            datasets: [{
+              data: donutData,
+              backgroundColor: donutLabels.map((_, i) => i % 2 === 0 ? chartColors.blue : chartColors.dark),
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            layout: { padding: 0 },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: { usePointStyle: true, color: chartColors.dark }
+              },
+              tooltip: { enabled: true },
+              title: { display: false },
+              datalabels: {
+                color: chartColors.dark,
+                font: { weight: 'bold', size: 10 },
+                formatter: (value, ctx) => ctx.chart.data.labels[ctx.dataIndex]
+              }
+            },
+            elements: { arc: { borderWidth: 0 } },
+            aria: { label: 'Donut chart showing relationship type counts', role: 'img' }
+          }
+        });
+
+        // Download donut chart as PNG
+        const exportDonutBtn = document.getElementById('exportDonutPNG');
+        if (exportDonutBtn) {
+          exportDonutBtn.addEventListener('click', () => {
+            const url = donutChart.toBase64Image();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'donut_chart.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          });
+        }
+
+        // Line chart
+        const lineCtx = document.getElementById('lineChart').getContext('2d');
+        const lineChart = new Chart(lineCtx, {
+          type: 'line',
+          data: {
+            labels: relationshipHistoryData.labels,
+            datasets: [{
+              label: 'Relationship %',
+              data: relationshipHistoryData.data,
+              borderColor: chartColors.blue,
+              backgroundColor: 'rgba(0,123,255,0.08)',
+              tension: 0.3,
+              fill: true,
+              pointRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: 0 },
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: true, mode: 'index', intersect: false },
+              datalabels: {
+                color: chartColors.dark,
+                font: { weight: 'bold', size: 9 },
+                align: 'top',
+                anchor: 'end',
+                formatter: v => v + '%'
+              }
+            },
+            scales: {
+              y: {
+                min: 0,
+                max: 100,
+                ticks: { stepSize: 20, callback: v => v + '%', font: { size: 8 }, display: true, color: chartColors.dark },
+                grid: { display: true },
+                title: {
+                  display: true,
+                  text: 'Relationship %',
+                  font: { size: 9 },
+                  color: chartColors.dark
+                }
+              },
+              x: {
+                ticks: { maxTicksLimit: 7, font: { size: 8 }, display: true, color: chartColors.dark },
+                grid: { display: true },
+                title: {
+                  display: true,
+                  text: 'Month-Year',
+                  font: { size: 9 },
+                  color: chartColors.dark
+                }
+              }
+            },
+            aria: { label: 'Line chart showing relationship percentage history', role: 'img' }
+          }
+        });
+
+        // Download line chart as PNG
+        const exportLineBtn = document.getElementById('exportLinePNG');
+        if (exportLineBtn) {
+          exportLineBtn.addEventListener('click', () => {
+            const url = lineChart.toBase64Image();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'line_chart.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          });
+        }
+      }, 100);
+
+      // Dynamically update dropdowns to only show values present in the table data
+      function updateDropdownOptionsFromData() {
+        // Extract unique values from data
+        const uniqueLags = Array.from(new Set(data.map(row => row["Lag"])));
+        const uniqueFreeFloats = Array.from(new Set(data.map(row => row["FreeFloat"])));
+        const uniqueProjects = Array.from(new Set(data.map(row => row["Project"])));
+
+        // Update lag dropdown
+        const lagFilter = document.getElementById('lagFilter');
+        if (lagFilter) {
+          lagFilter.innerHTML = '<option value="All">All</option>';
+          uniqueLags.filter(v => v !== undefined && v !== null && v !== '').forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            lagFilter.appendChild(opt);
+          });
+          if (!uniqueLags.includes(fsFilters.lag)) {
+            fsFilters.lag = 'All';
+          }
+          lagFilter.value = fsFilters.lag;
+        }
+
+        // Update free float dropdown
+        const freeFloatFilter = document.getElementById('freeFloatFilter');
+        if (freeFloatFilter) {
+          freeFloatFilter.innerHTML = '<option value="All">All</option>';
+          uniqueFreeFloats.filter(v => v !== undefined && v !== null && v !== '').forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            freeFloatFilter.appendChild(opt);
+          });
+          if (!uniqueFreeFloats.includes(fsFilters.free_float)) {
+            fsFilters.free_float = 'All';
+          }
+          freeFloatFilter.value = fsFilters.free_float;
+        }
+
+        // Update project dropdown
+        const projectFilter = document.getElementById('projectFilter');
+        if (projectFilter) {
+          projectFilter.innerHTML = '<option value="All">All</option>';
+          uniqueProjects.filter(v => v !== undefined && v !== null && v !== '').forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            projectFilter.appendChild(opt);
+          });
+          if (!uniqueProjects.includes(fsFilters.project_id)) {
+            fsFilters.project_id = 'All';
+          }
+          projectFilter.value = fsFilters.project_id;
+        }
+      }
+
+      // Call after table is rendered
+      updateDropdownOptionsFromData();
+    }
+
+    function renderTypicalRelationshipsNonFS0dLag(data) {
+      // Placeholder summary values (replace with real calculations if needed)
+      const totalRelationships = data.length;
+      const remainingRelationships = data.length; // For now, same as total
+      const lagCount = data.filter(row => row["Lag"] && row["Lag"] !== 0 && row["Lag"] !== '').length;
+
+      // Export buttons
+      const exportBtns = `
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px;">
+          <button class="export-btn" id="exportTableCSV" aria-label="Export table as CSV">Export Table CSV</button>
+          <button class="export-btn" id="exportDonutPNG" aria-label="Download donut chart as PNG">Download Donut PNG</button>
+          <button class="export-btn" id="exportLinePNG" aria-label="Download line chart as PNG">Download Line PNG</button>
+        </div>
+      `;
+
+      const summary = `
+        <div class="tr-summary">
+          <div class="tr-card"><div class="tr-card-title">Relationships</div><div class="tr-card-value">${formatNumber(totalRelationships)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Remaining Relationships</div><div class="tr-card-value">${formatNumber(remainingRelationships)}</div></div>
+          <div class="tr-card"><div class="tr-card-title">Lags</div><div class="tr-card-value">${formatNumber(lagCount)}</div></div>
+        </div>
+      `;
+
+      // --- Filter Bar (match FS+0d Lag style) ---
+      const filters = `
+        <div class="tr-filters" style="background:#b3e0fc;padding:8px 4px 4px 4px;border-radius:8px 8px 0 0;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-evenly;align-items:flex-end;flex-wrap:nowrap;width:100%;">
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Type</span>
+              <div id="nonfs-relationship-type-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Lag</span>
+              <select id="nonfs-lagFilter" class="tr-filter-dropdown" data-filter-type="lag" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:80px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Free Float</span>
+              <select id="nonfs-freeFloatFilter" class="tr-filter-dropdown" data-filter-type="free_float" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:110px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Relationship Status</span>
+              <div style="display:flex;gap:2px;">
+                <div class="tr-filter" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">Incomplete</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:70px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Driving</span>
+              <div id="nonfs-driving-filters" style="display:flex;gap:2px;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;min-width:90px;">
+              <span style="color:#1a2a4a;font-size:0.92rem;font-weight:600;margin-bottom:2px;">Project</span>
+              <select id="nonfs-projectFilter" class="tr-filter-dropdown" data-filter-type="project_id" style="padding:3px 10px;font-size:0.92rem;min-width:unset;">
+                <option value="All">All</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Charts (placeholder, you will update with real data/logic later)
+      const charts = `
+        <div class="tr-charts" style="justify-content:center;display:flex;gap:32px;">
+          <div class="tr-chart"><canvas id="donutChart" height="165"></canvas></div>
+          <div class="tr-chart"><canvas id="lineChart" height="165"></canvas></div>
+        </div>
+      `;
+
+      // Table (show only first 20 rows)
+      let table = '';
+      if (data.length === 0) {
+        table = '<div class="tr-table-container"><p class="placeholder" style="text-align:center; padding: 20px;">No table data found for the selected filters.</p></div>';
+      } else {
+        table = `<div class="tr-table-container"><table class="tr-table" id="trTable" aria-label="Relationships data table"><thead><tr>
+        <th tabindex="0" aria-label="Sort by Pred. ID">Pred. ID</th>
+        <th tabindex="0" aria-label="Sort by Succ. ID">Succ. ID</th>
+        <th tabindex="0" aria-label="Sort by Pred. Name">Pred. Name</th>
+        <th tabindex="0" aria-label="Sort by Succ. Name">Succ. Name</th>
+        <th tabindex="0" aria-label="Sort by Relationship type">Relationship type</th>
+        <th tabindex="0" aria-label="Sort by Lag">Lag</th>
+        <th tabindex="0" aria-label="Sort by Lead">Lead</th>
+        <th tabindex="0" aria-label="Sort by Excessive Lag">Excessive Lag</th>
+        <th tabindex="0" aria-label="Sort by Driving">Driving</th>
+        <th tabindex="0" aria-label="Sort by FreeFloat">FreeFloat</th>
+        <th tabindex="0" aria-label="Sort by Rel. Status">Rel. Status</th>
+      </tr></thead><tbody>`;
+        for (const row of data.slice(0, 20)) {
+          table += `<tr>
+          <td>${row["Pred. ID"]}</td>
+          <td>${row["Succ. ID"]}</td>
+          <td>${row["Pred. Name"]}</td>
+          <td>${row["Succ. Name"]}</td>
+          <td>${row["Relationship type"]}</td>
+          <td>${row["Lag"]}</td>
+          <td>${row["Lead"] || ''}</td>
+          <td>${row["ExcessiveLag"] || ''}</td>
+          <td>${row["Driving"]}</td>
+          <td>${row["FreeFloat"]}</td>
+          <td>${row["Relationship_Status"] || ''}</td>
+        </tr>`;
+        }
+        table += "</tbody></table></div>";
+      }
+
+      // Header
+      const header = `<div class="tr-header">Typical Relationships Non FS+0d Lag <span class="subtitle">90% of Relationships Contain FS+0d Lag Logic (Weighting: 5%)</span></div>`;
+      displayArea.innerHTML = header + exportBtns + filters + summary + charts + table;
+      
+      // Populate the filter options after rendering
+      setTimeout(() => {
+        populateNonFSFilterOptions();
+      }, 0);
+
+      // Table sorting logic (same as FS+0d)
+      const trTable = document.getElementById('trTable');
+      if (trTable) {
+        let sortDir = 1;
+        let lastSortedCol = -1;
+        trTable.querySelectorAll('th').forEach((th, idx) => {
+          th.addEventListener('click', () => sortTable(idx));
+          th.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              sortTable(idx);
+            }
+          });
+        });
+        function sortTable(colIdx) {
+          const tbody = trTable.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          if (lastSortedCol === colIdx) sortDir *= -1; else sortDir = 1;
+          lastSortedCol = colIdx;
+          rows.sort((a, b) => {
+            const aText = a.children[colIdx].textContent.trim();
+            const bText = b.children[colIdx].textContent.trim();
+            if (!isNaN(aText) && !isNaN(bText)) {
+              return (Number(aText) - Number(bText)) * sortDir;
+            }
+            return aText.localeCompare(bText) * sortDir;
+          });
+          rows.forEach(row => tbody.appendChild(row));
+        }
+      }
+
+      // Export table as CSV (same as FS+0d)
+      const exportTableBtn = document.getElementById('exportTableCSV');
+      if (exportTableBtn && trTable) {
+        exportTableBtn.addEventListener('click', () => {
+          let csv = '';
+          const rows = trTable.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cols = Array.from(row.querySelectorAll('th,td')).map(td => '"' + td.textContent.replace(/"/g, '""') + '"');
+            csv += cols.join(',') + '\n';
+          });
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'non_fs0d_relationships_data.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
+
+      // Chart.js color palette
+      const chartColors = {
+        blue: getComputedStyle(document.documentElement).getPropertyValue('--primary-blue').trim() || '#007bff',
+        dark: getComputedStyle(document.documentElement).getPropertyValue('--secondary-blue').trim() || '#424770',
+        yellow: getComputedStyle(document.documentElement).getPropertyValue('--accent-yellow').trim() || '#ffc107',
+      };
+
+      setTimeout(() => {
+        // Donut chart (dynamic, exclude PR_FS and PR_FS1)
+        const donutCtx = document.getElementById('donutChart').getContext('2d');
+        const typeCounts = {};
+        data.forEach(row => {
+          const type = row["Relationship type"];
+          if (type && type !== 'PR_FS' && type !== 'PR_FS1') {
+            typeCounts[type] = (typeCounts[type] || 0) + 1;
+          }
+        });
+        const donutLabels = Object.keys(typeCounts);
+        const donutData = Object.values(typeCounts);
+        const donutChart = new Chart(donutCtx, {
+          type: 'doughnut',
+          data: {
+            labels: donutLabels,
+            datasets: [{
+              data: donutData,
+              backgroundColor: donutLabels.map((_, i) => i % 2 === 0 ? chartColors.blue : chartColors.dark),
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            layout: { padding: 0 },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: { usePointStyle: true, color: chartColors.dark }
+              },
+              tooltip: { enabled: true },
+              title: { display: false },
+              datalabels: {
+                color: chartColors.dark,
+                font: { weight: 'bold', size: 10 },
+                formatter: (value, ctx) => ctx.chart.data.labels[ctx.dataIndex]
+              }
+            },
+            elements: { arc: { borderWidth: 0 } },
+            aria: { label: 'Donut chart showing relationship type counts', role: 'img' }
+          }
+        });
+
+        // Download donut chart as PNG
+        const exportDonutBtn = document.getElementById('exportDonutPNG');
+        if (exportDonutBtn) {
+          exportDonutBtn.addEventListener('click', () => {
+            const url = donutChart.toBase64Image();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'non_fs0d_donut_chart.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          });
+        }
+
+        // Line chart (placeholder, update with real logic as needed)
+        const lineCtx = document.getElementById('lineChart').getContext('2d');
+        const months = Array.from({length: 12}, (_, i) => `Month ${i+1}`);
+        const percentData = months.map(() => Math.round(Math.random() * 100)); // Placeholder
+        const lineChart = new Chart(lineCtx, {
+          type: 'line',
+          data: {
+            labels: months,
+            datasets: [{
+              label: 'Relationship %',
+              data: percentData,
+              borderColor: chartColors.blue,
+              backgroundColor: 'rgba(0,123,255,0.08)',
+              tension: 0.3,
+              fill: true,
+              pointRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: 0 },
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: true, mode: 'index', intersect: false },
+              datalabels: {
+                color: chartColors.dark,
+                font: { weight: 'bold', size: 9 },
+                align: 'top',
+                anchor: 'end',
+                formatter: v => v + '%'
+              }
+            },
+            scales: {
+              y: {
+                min: 0,
+                max: 100,
+                ticks: { stepSize: 20, callback: v => v + '%', font: { size: 8 }, display: true, color: chartColors.dark },
+                grid: { display: true },
+                title: {
+                  display: true,
+                  text: 'Relationship %',
+                  font: { size: 9 },
+                  color: chartColors.dark
+                }
+              },
+              x: {
+                ticks: { maxTicksLimit: 7, font: { size: 8 }, display: true, color: chartColors.dark },
+                grid: { display: true },
+                title: {
+                  display: true,
+                  text: 'Month-Year',
+                  font: { size: 9 },
+                  color: chartColors.dark
+                }
+              }
+            },
+            aria: { label: 'Line chart showing relationship percentage history', role: 'img' }
+          }
+        });
+
+        // Download line chart as PNG
+        const exportLineBtn = document.getElementById('exportLinePNG');
+        if (exportLineBtn) {
+          exportLineBtn.addEventListener('click', () => {
+            const url = lineChart.toBase64Image();
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'non_fs0d_line_chart.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          });
+        }
+      }, 100);
+    }
+
+    // Populate Non FS+0d Lag filter options
+    function populateNonFSFilterOptions() {
+      // Relationship Type
+      fetch('/api/nonfs-relationship-type-options').then(res => res.json()).then(types => {
+        const container = document.getElementById('nonfs-relationship-type-filters');
+        if (container) {
+          container.innerHTML = types.map(type => `<button class="tr-filter-btn" data-filter-type="relationship_type" data-filter-value="${type}">${type}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="relationship_type" data-filter-value="All">All</button>`;
+          setActiveNonFSFilterBtn('relationship_type', nonfsFilters.relationship_type);
+          // Attach event listeners to relationship type buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              nonfsFilters.relationship_type = btn.dataset.filterValue;
+              fetchAndRenderNonFSData();
+            });
+          });
+        }
+      });
+      // Lag
+      fetch('/api/nonfs-lag-options').then(res => res.json()).then(lags => {
+        const lagFilter = document.getElementById('nonfs-lagFilter');
+        if (lagFilter) {
+          lagFilter.innerHTML = '<option value="All">All</option>' + lags.map(lag => `<option value="${lag}">${lag}</option>`).join('');
+          lagFilter.value = nonfsFilters.lag;
+          // Attach event listener to lag dropdown
+          lagFilter.addEventListener('change', () => {
+            nonfsFilters.lag = lagFilter.value;
+            fetchAndRenderNonFSData();
+          });
+        }
+      });
+      // Free Float
+      fetch('/api/nonfs-free-float-options').then(res => res.json()).then(freeFloats => {
+        const ffFilter = document.getElementById('nonfs-freeFloatFilter');
+        if (ffFilter) {
+          ffFilter.innerHTML = '<option value="All">All</option>' + freeFloats.map(ff => `<option value="${ff}">${ff}</option>`).join('');
+          ffFilter.value = nonfsFilters.free_float;
+          // Attach event listener to free float dropdown
+          ffFilter.addEventListener('change', () => {
+            nonfsFilters.free_float = ffFilter.value;
+            fetchAndRenderNonFSData();
+          });
+        }
+      });
+      // Driving
+      fetch('/api/nonfs-driving-options').then(res => res.json()).then(drivings => {
+        const container = document.getElementById('nonfs-driving-filters');
+        if (container) {
+          container.innerHTML = drivings.map(d => `<button class="tr-filter-btn" data-filter-type="driving" data-filter-value="${d}">${d}</button>`).join('') +
+            `<button class="tr-filter-btn active" data-filter-type="driving" data-filter-value="All">All</button>`;
+          setActiveNonFSFilterBtn('driving', nonfsFilters.driving);
+          // Attach event listeners to driving buttons
+          container.querySelectorAll('.tr-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              container.querySelectorAll('.tr-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              nonfsFilters.driving = btn.dataset.filterValue;
+              fetchAndRenderNonFSData();
+            });
+          });
+        }
+      });
+    }
+
+    function setActiveNonFSFilterBtn(type, value) {
+      document.querySelectorAll(`#nonfs-relationship-type-filters .tr-filter-btn[data-filter-type="${type}"], #nonfs-driving-filters .tr-filter-btn[data-filter-type="${type}"]`).forEach(btn => {
+        if (btn.dataset.filterValue === value) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+    }
+  </script>
+</body>
+</html> 
