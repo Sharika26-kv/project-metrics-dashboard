@@ -479,7 +479,7 @@
       if (fsFilters.driving !== 'All') params.append('driving', fsFilters.driving);
       if (fsFilters.lag !== 'All') params.append('lag', fsFilters.lag);
       if (fsFilters.free_float !== 'All') params.append('free_float', fsFilters.free_float);
-      // project_id left as All for now
+      if (fsFilters.project_id !== 'All') params.append('project_id', fsFilters.project_id);
       const queryString = params.toString();
       Promise.all([
         fetch(`/api/typical-fs0d?${queryString}`).then(res => res.json()),
@@ -521,7 +521,7 @@
       if (nonfsFilters.driving !== 'All') params.append('driving', nonfsFilters.driving);
       if (nonfsFilters.lag !== 'All') params.append('lag', nonfsFilters.lag);
       if (nonfsFilters.free_float !== 'All') params.append('free_float', nonfsFilters.free_float);
-      // project_id left as All for now
+      if (nonfsFilters.project_id !== 'All') params.append('project_id', nonfsFilters.project_id);
       fetch(`/api/typical-non-fs0d?${params.toString()}`)
         .then(res => res.json())
         .then(data => {
@@ -606,7 +606,7 @@
       fetch('/api/project-options').then(res => res.json()).then(projects => {
         const projectFilter = document.getElementById('fs-projectFilter');
           if (projectFilter) {
-          projectFilter.innerHTML = '<option value="All">All</option>' + projects.map(proj => `<option value="${proj}">${proj}</option>`).join('');
+          projectFilter.innerHTML = '<option value="All">All</option>' + projects.map(proj => `<option value="${proj.id}">${proj.name}</option>`).join('');
           projectFilter.value = fsFilters.project_id;
           // Attach event listener to project dropdown
           projectFilter.addEventListener('change', () => {
@@ -614,6 +614,8 @@
             fetchAndRenderFSData();
           });
         }
+      }).catch(error => {
+        console.error('Error fetching project options:', error);
       });
     }
 
@@ -637,7 +639,7 @@
       if (leadsFilters.driving !== 'All') params.append('driving', leadsFilters.driving);
       if (leadsFilters.lag !== 'All') params.append('lag', leadsFilters.lag);
       if (leadsFilters.free_float !== 'All') params.append('free_float', leadsFilters.free_float);
-      // project_id left as All for now
+      if (leadsFilters.project_id !== 'All') params.append('project_id', leadsFilters.project_id);
       const queryString = params.toString();
       
       Promise.all([
@@ -1034,6 +1036,22 @@
           });
         }
       });
+      
+      // Project
+      fetch('/api/project-options').then(res => res.json()).then(projects => {
+        const projectFilter = document.getElementById('leads-projectFilter');
+        if (projectFilter) {
+          projectFilter.innerHTML = '<option value="All">All</option>' + projects.map(proj => `<option value="${proj.id}">${proj.name}</option>`).join('');
+          projectFilter.value = leadsFilters.project_id;
+          // Attach event listener to project dropdown
+          projectFilter.addEventListener('change', () => {
+            leadsFilters.project_id = projectFilter.value;
+            fetchAndRenderLeadsData();
+          });
+        }
+      }).catch(error => {
+        console.error('Error fetching project options:', error);
+      });
     }
 
     function setActiveLeadsFilterBtn(type, value) {
@@ -1056,7 +1074,7 @@
       if (lagsFilters.driving !== 'All') params.append('driving', lagsFilters.driving);
       if (lagsFilters.lag !== 'All') params.append('lag', lagsFilters.lag);
       if (lagsFilters.free_float !== 'All') params.append('free_float', lagsFilters.free_float);
-      // project_id left as All for now
+      if (lagsFilters.project_id !== 'All') params.append('project_id', lagsFilters.project_id);
       const queryString = params.toString();
       
       Promise.all([
@@ -1453,6 +1471,22 @@
           });
         }
       });
+      
+      // Project
+      fetch('/api/project-options').then(res => res.json()).then(projects => {
+        const projectFilter = document.getElementById('lags-projectFilter');
+        if (projectFilter) {
+          projectFilter.innerHTML = '<option value="All">All</option>' + projects.map(proj => `<option value="${proj.id}">${proj.name}</option>`).join('');
+          projectFilter.value = lagsFilters.project_id;
+          // Attach event listener to project dropdown
+          projectFilter.addEventListener('change', () => {
+            lagsFilters.project_id = projectFilter.value;
+            fetchAndRenderLagsData();
+          });
+        }
+      }).catch(error => {
+        console.error('Error fetching project options:', error);
+      });
     }
 
     function setActiveLagsFilterBtn(type, value) {
@@ -1475,7 +1509,7 @@
       if (excessiveLagsFilters.driving !== 'All') params.append('driving', excessiveLagsFilters.driving);
       if (excessiveLagsFilters.lag !== 'All') params.append('lag', excessiveLagsFilters.lag);
       if (excessiveLagsFilters.free_float !== 'All') params.append('free_float', excessiveLagsFilters.free_float);
-      // project_id left as All for now
+      if (excessiveLagsFilters.project_id !== 'All') params.append('project_id', excessiveLagsFilters.project_id);
       const queryString = params.toString();
       
       Promise.all([
@@ -1877,6 +1911,22 @@
             });
           });
         }
+      });
+      
+      // Project
+      fetch('/api/project-options').then(res => res.json()).then(projects => {
+        const projectFilter = document.getElementById('excessive-lags-projectFilter');
+        if (projectFilter) {
+          projectFilter.innerHTML = '<option value="All">All</option>' + projects.map(proj => `<option value="${proj.id}">${proj.name}</option>`).join('');
+          projectFilter.value = excessiveLagsFilters.project_id;
+          // Attach event listener to project dropdown
+          projectFilter.addEventListener('change', () => {
+            excessiveLagsFilters.project_id = projectFilter.value;
+            fetchAndRenderExcessiveLagsData();
+          });
+        }
+      }).catch(error => {
+        console.error('Error fetching project options:', error);
       });
     }
 
@@ -2644,6 +2694,22 @@
             });
           });
         }
+      });
+      
+      // Project
+      fetch('/api/project-options').then(res => res.json()).then(projects => {
+        const projectFilter = document.getElementById('nonfs-projectFilter');
+        if (projectFilter) {
+          projectFilter.innerHTML = '<option value="All">All</option>' + projects.map(proj => `<option value="${proj.id}">${proj.name}</option>`).join('');
+          projectFilter.value = nonfsFilters.project_id;
+          // Attach event listener to project dropdown
+          projectFilter.addEventListener('change', () => {
+            nonfsFilters.project_id = projectFilter.value;
+            fetchAndRenderNonFSData();
+          });
+        }
+      }).catch(error => {
+        console.error('Error fetching project options:', error);
       });
     }
 

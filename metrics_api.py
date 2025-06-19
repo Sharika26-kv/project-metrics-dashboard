@@ -32,14 +32,19 @@ def get_project_options():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        # !!! IMPORTANT: Replace 'ProjectID' with the actual column name for projects in your DB
-        cursor.execute("SELECT DISTINCT ProjectID FROM ActivityRelationshipView ORDER BY ProjectID")
-        projects = [row[0] for row in cursor.fetchall()]
+        # Get project options using proj_short_name from PROJECT table
+        cursor.execute("SELECT proj_id, proj_short_name FROM PROJECT ORDER BY proj_short_name")
+        projects = cursor.fetchall()
+        # Return as list of dictionaries with both ID and name
+        project_options = [{"id": proj[0], "name": proj[1]} for proj in projects]
     except sqlite3.OperationalError as e:
-        print(f"Error fetching ProjectID options: {e}. Please ensure 'ProjectID' is the correct column name.")
-        projects = [] # Return empty list if column not found
+        print(f"Error fetching project options: {e}")
+        project_options = []
+    except Exception as e:
+        print(f"Unexpected error in project options: {e}")
+        project_options = []
     conn.close()
-    return jsonify(projects)
+    return jsonify(project_options)
 
 @app.route('/api/typical-fs0d')
 def typical_fs0d():
@@ -77,9 +82,9 @@ def typical_fs0d():
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
 
-    # ProjectID filter - Placeholder for now, not applied to SQL query
-    # if project_id and project_id != 'All':
-    #     filters.append(f"ProjectID = '{project_id}'") 
+    # Project filter
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'") 
 
     where_clause = " AND ".join(filters)
     if where_clause:
@@ -124,39 +129,44 @@ def get_final_activity_kpi():
     free_float = request.args.get('free_float')
     project_id = request.args.get('project_id') # Re-added filter parameter
 
-    # Filters for Total_Relationship_Count and Remaining_Relationship_Count
-    base_kpi_filters = []
-    base_kpi_filters.append("Relationship_Status = 'Incomplete'") # Fixed condition for KPI
-    # Removed hardcoded Lag = 0, now dynamic filter is applied below
-
+    # Base filters for both Total and Remaining relationships
+    base_filters = []
+    
     if relationship_type and relationship_type != 'All':
-        base_kpi_filters.append(f"RelationshipType = '{relationship_type}'")
+        base_filters.append(f"RelationshipType = '{relationship_type}'")
     else:
-        base_kpi_filters.append("RelationshipType IN ('PR_FS', 'PR_FS1')")
+        base_filters.append("RelationshipType IN ('PR_FS', 'PR_FS1')")
 
     if driving and driving != 'All':
-        base_kpi_filters.append(f"Driving = '{driving}'")
+        base_filters.append(f"Driving = '{driving}'")
 
     if lag and lag != 'All':
-        base_kpi_filters.append(f"Lag = {lag}")
+        base_filters.append(f"Lag = {lag}")
 
     if free_float and free_float != 'All':
-        base_kpi_filters.append(f"FreeFloat = {free_float}")
+        base_filters.append(f"FreeFloat = {free_float}")
 
-    # ProjectID filter - Placeholder for now, not applied to SQL query
-    # if project_id and project_id != 'All':
-    #     base_kpi_filters.append(f"ProjectID = '{project_id}'")
+    # Project filter
+    if project_id and project_id != 'All':
+        base_filters.append(f"Project_ID = '{project_id}'")
 
-    base_kpi_where_clause = " AND ".join(base_kpi_filters)
-    if base_kpi_where_clause:
-        base_kpi_where_clause = "WHERE " + base_kpi_where_clause
+    # Total Relationships (all relationships matching base filters, regardless of status)
+    total_filters = base_filters.copy()
+    total_where_clause = " AND ".join(total_filters)
+    if total_where_clause:
+        total_where_clause = "WHERE " + total_where_clause
 
-    # Total Relationships (filtered)
-    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {base_kpi_where_clause}')
+    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {total_where_clause}')
     total_relationships = cursor.fetchone()[0]
 
-    # Remaining Relationships (using the same base filter)
-    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {base_kpi_where_clause}')
+    # Remaining Relationships (only incomplete relationships)
+    remaining_filters = base_filters.copy()
+    remaining_filters.append("Relationship_Status = 'Incomplete'")
+    remaining_where_clause = " AND ".join(remaining_filters)
+    if remaining_where_clause:
+        remaining_where_clause = "WHERE " + remaining_where_clause
+
+    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {remaining_where_clause}')
     remaining_relationships = cursor.fetchone()[0]
 
     # Lag Count (Lag > 0 and Relationship_Status = 'Incomplete' with current RelationshipType and Driving filters)
@@ -184,9 +194,9 @@ def get_final_activity_kpi():
     if free_float and free_float != 'All':
         lag_count_filters.append(f"FreeFloat = {free_float}")
 
-    # ProjectID filter - Placeholder for now, not applied to SQL query
-    # if project_id and project_id != 'All':
-    #     lag_count_filters.append(f"ProjectID = '{project_id}'")
+    # Project filter
+    if project_id and project_id != 'All':
+        lag_count_filters.append(f"Project_ID = '{project_id}'")
 
     lag_count_where_clause = " AND ".join(lag_count_filters)
     if lag_count_where_clause:
@@ -240,9 +250,9 @@ def get_relationship_type_counts():
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
 
-    # ProjectID filter - Placeholder for now, not applied to SQL query
-    # if project_id and project_id != 'All':
-    #     filters.append(f"ProjectID = '{project_id}'")
+    # Project filter
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
 
     where_clause = " AND ".join(filters)
     if where_clause:
@@ -278,7 +288,7 @@ def typical_non_fs0d():
 
     filters = [
         "Relationship_Status = 'Incomplete'",
-        "Lag IS NOT NULL AND Lag != 0 AND Lag != ''"
+        "(Lag IS NULL OR Lag != 0)"
     ]
     if relationship_type and relationship_type != 'All':
         filters.append(f"RelationshipType = '{relationship_type}'")
@@ -290,7 +300,9 @@ def typical_non_fs0d():
         filters.append(f"Lag = {lag}")
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
-    # ProjectID filter - Placeholder for now
+    # Project filter
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
     where_clause = " AND ".join(filters)
     if where_clause:
         where_clause = "WHERE " + where_clause
@@ -334,7 +346,7 @@ def get_nonfs_relationship_type_options():
 def get_nonfs_lag_options():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT Lag FROM ActivityRelationshipView WHERE RelationshipType NOT IN ('PR_FS', 'PR_FS1') AND Lag IS NOT NULL AND Lag != 0 AND Lag != '' ORDER BY CAST(Lag AS REAL)")
+    cursor.execute("SELECT DISTINCT Lag FROM ActivityRelationshipView WHERE RelationshipType NOT IN ('PR_FS', 'PR_FS1') AND (Lag IS NULL OR Lag != 0) ORDER BY CAST(Lag AS REAL)")
     lags = [row[0] for row in cursor.fetchall()]
     conn.close()
     return jsonify(lags)
@@ -343,7 +355,7 @@ def get_nonfs_lag_options():
 def get_nonfs_free_float_options():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT FreeFloat FROM ActivityRelationshipView WHERE RelationshipType NOT IN ('PR_FS', 'PR_FS1') AND Lag IS NOT NULL AND Lag != 0 AND Lag != '' ORDER BY CAST(FreeFloat AS REAL)")
+    cursor.execute("SELECT DISTINCT FreeFloat FROM ActivityRelationshipView WHERE RelationshipType NOT IN ('PR_FS', 'PR_FS1') AND (Lag IS NULL OR Lag != 0) ORDER BY CAST(FreeFloat AS REAL)")
     free_floats = [row[0] for row in cursor.fetchall()]
     conn.close()
     return jsonify(free_floats)
@@ -352,10 +364,97 @@ def get_nonfs_free_float_options():
 def get_nonfs_driving_options():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT Driving FROM ActivityRelationshipView WHERE RelationshipType NOT IN ('PR_FS', 'PR_FS1') AND Lag IS NOT NULL AND Lag != 0 AND Lag != '' ORDER BY Driving")
+    cursor.execute("SELECT DISTINCT Driving FROM ActivityRelationshipView WHERE RelationshipType NOT IN ('PR_FS', 'PR_FS1') AND (Lag IS NULL OR Lag != 0) ORDER BY Driving")
     drivings = [row[0] for row in cursor.fetchall()]
     conn.close()
     return jsonify(drivings)
+
+@app.route('/api/non-fs0d-kpi')
+def non_fs0d_kpi():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    relationship_type = request.args.get('relationship_type')
+    driving = request.args.get('driving')
+    lag = request.args.get('lag')
+    free_float = request.args.get('free_float')
+    project_id = request.args.get('project_id')
+
+    try:
+        # Build base filters for Non FS+0d page: ALL THREE FILTERS APPLIED CONSISTENTLY
+        # 1. RelationshipType NOT IN ('PR_FS', 'PR_FS1')
+        # 2. Lag IS NULL OR Lag != 0
+        # 3. Relationship_Status = 'Incomplete'
+        base_filters = [
+            "Relationship_Status = 'Incomplete'",
+            "(Lag IS NULL OR Lag != 0)"
+        ]
+        
+        if relationship_type and relationship_type != 'All':
+            base_filters.append(f"RelationshipType = '{relationship_type}'")
+        else:
+            base_filters.append("RelationshipType NOT IN ('PR_FS', 'PR_FS1')")
+        
+        if driving and driving != 'All':
+            base_filters.append(f"Driving = '{driving}'")
+        if lag and lag != 'All':
+            base_filters.append(f"Lag = {lag}")
+        if free_float and free_float != 'All':
+            base_filters.append(f"FreeFloat = {free_float}")
+        if project_id and project_id != 'All':
+            base_filters.append(f"Project_ID = '{project_id}'")
+        
+        base_where_clause = " AND ".join(base_filters)
+        if base_where_clause:
+            base_where_clause = "WHERE " + base_where_clause
+
+        # Total Relationships - relationships matching all three Non FS+0d filters
+        cursor.execute(f'''
+            SELECT COUNT(*) as Total_Relationship_Count
+            FROM ActivityRelationshipView
+            {base_where_clause}
+        ''')
+        total_relationships = cursor.fetchone()[0]
+
+        # Remaining Relationships - same as Total since we're already filtering by 'Incomplete'
+        remaining_relationships = total_relationships
+
+        # Lag Count - incomplete relationships with actual lag issues (Lag != 0 AND Lag IS NOT NULL)
+        lag_filters = base_filters.copy()
+        lag_filters.append("Lag != 0")
+        lag_filters.append("Lag IS NOT NULL")
+        
+        lag_where_clause = " AND ".join(lag_filters)
+        if lag_where_clause:
+            lag_where_clause = "WHERE " + lag_where_clause
+
+        cursor.execute(f'''
+            SELECT COUNT(*) as Lag_Count
+            FROM ActivityRelationshipView
+            {lag_where_clause}
+        ''')
+        lag_count = cursor.fetchone()[0]
+
+        # Calculate lag percentage
+        lag_percentage = (lag_count / remaining_relationships * 100) if remaining_relationships > 0 else 0
+
+        conn.close()
+        return jsonify({
+            'Total_Relationship_Count': int(total_relationships),
+            'Remaining_Relationship_Count': int(remaining_relationships), 
+            'Lag_Count': int(lag_count),
+            'Lag_Percentage': float(round(lag_percentage, 2))
+        })
+        
+    except Exception as e:
+        print(f"Error in non_fs0d_kpi: {e}")
+        conn.close()
+        return jsonify({
+            'Total_Relationship_Count': 0,
+            'Remaining_Relationship_Count': 0,
+            'Lag_Count': 0,
+            'Lag_Percentage': 0.0
+        })
 
 @app.route('/api/leads')
 def leads():
@@ -380,7 +479,9 @@ def leads():
         filters.append(f"Lag = {lag}")
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
-    # ProjectID filter - Placeholder for now
+    # Project filter
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
     where_clause = " AND ".join(filters)
     if where_clause:
         where_clause = "WHERE " + where_clause
@@ -459,77 +560,87 @@ def leads_kpi():
     project_id = request.args.get('project_id')
 
     try:
-        # Try different possible names for the FinalActivityKPIView
-        view_found = False
-        kpi_data = None
+        # Always calculate from ActivityRelationshipView with proper Leads filters
+        # Build filters for leads calculation (Lag < 0 and Relationship_Status = 'Incomplete')
+        leads_filters = [
+            "Relationship_Status = 'Incomplete'",
+            "Lag < 0"
+        ]
+        if relationship_type and relationship_type != 'All':
+            leads_filters.append(f"RelationshipType = '{relationship_type}'")
+        if driving and driving != 'All':
+            leads_filters.append(f"Driving = '{driving}'")
+        if lag and lag != 'All':
+            leads_filters.append(f"Lag = {lag}")
+        if free_float and free_float != 'All':
+            leads_filters.append(f"FreeFloat = {free_float}")
+        if project_id and project_id != 'All':
+            leads_filters.append(f"Project_ID = '{project_id}'")
         
-        for view_name in ['FinalActivityKPIView', 'finalactivityKPIview', 'FinalActivityKPI', 'finalactivitykpi']:
-            try:
-                cursor.execute(f"SELECT * FROM {view_name} LIMIT 1")
-                row = cursor.fetchone()
-                if row:
-                    # Get column names
-                    cursor.execute(f"PRAGMA table_info({view_name})")
-                    columns = [col[1] for col in cursor.fetchall()]
-                    
-                    # Map the data based on available columns
-                    leads_count = 0
-                    lead_percentage = 0
-                    
-                    # Look for leads count column
-                    for i, col in enumerate(columns):
-                        if 'leads' in col.lower() and 'count' in col.lower():
-                            leads_count = row[i] if row[i] else 0
-                        elif 'lead' in col.lower() and 'percentage' in col.lower():
-                            lead_percentage = row[i] if row[i] else 0
-                    
-                    kpi_data = {
-                        "Total_Relationship_Count": leads_count,
-                        "Remaining_Relationship_Count": leads_count,
-                        "Leads_Count": leads_count,
-                        "Lead_Percentage": lead_percentage
-                    }
-                    view_found = True
-                    break
-            except:
-                continue
-        
-        if not view_found:
-            # FinalActivityKPIView doesn't exist, calculate from ActivityRelationshipView
-            filters = [
-                "Relationship_Status = 'Incomplete'",
-                "Lag < 0"
-            ]
-            if relationship_type and relationship_type != 'All':
-                filters.append(f"RelationshipType = '{relationship_type}'")
-            if driving and driving != 'All':
-                filters.append(f"Driving = '{driving}'")
-            if lag and lag != 'All':
-                filters.append(f"Lag = {lag}")
-            if free_float and free_float != 'All':
-                filters.append(f"FreeFloat = {free_float}")
-            
-            where_clause = " AND ".join(filters)
-            if where_clause:
-                where_clause = "WHERE " + where_clause
+        leads_where_clause = " AND ".join(leads_filters)
+        if leads_where_clause:
+            leads_where_clause = "WHERE " + leads_where_clause
 
-            cursor.execute(f'''
-                SELECT 
-                    COUNT(*) as Total_Relationship_Count,
-                    COUNT(*) as Remaining_Relationship_Count,
-                    COUNT(*) as Leads_Count,
-                    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM ActivityRelationshipView WHERE Relationship_Status = 'Incomplete'), 2) as Lead_Percentage
-                FROM ActivityRelationshipView
-                {where_clause}
-            ''')
-            
-            row = cursor.fetchone()
-            kpi_data = {
-                "Total_Relationship_Count": row[0] if row else 0,
-                "Remaining_Relationship_Count": row[1] if row else 0,
-                "Leads_Count": row[2] if row else 0,
-                "Lead_Percentage": row[3] if row else 0
-            }
+        # Calculate leads count
+        cursor.execute(f'''
+            SELECT COUNT(*) as Leads_Count
+            FROM ActivityRelationshipView
+            {leads_where_clause}
+        ''')
+        leads_count = cursor.fetchone()[0]
+
+        # Build filters for remaining relationships calculation (only Relationship_Status = 'Incomplete')
+        remaining_filters = ["Relationship_Status = 'Incomplete'"]
+        if relationship_type and relationship_type != 'All':
+            remaining_filters.append(f"RelationshipType = '{relationship_type}'")
+        if driving and driving != 'All':
+            remaining_filters.append(f"Driving = '{driving}'")
+        if lag and lag != 'All':
+            remaining_filters.append(f"Lag = {lag}")
+        if free_float and free_float != 'All':
+            remaining_filters.append(f"FreeFloat = {free_float}")
+        if project_id and project_id != 'All':
+            remaining_filters.append(f"Project_ID = '{project_id}'")
+        
+        remaining_where_clause = " AND ".join(remaining_filters)
+        if remaining_where_clause:
+            remaining_where_clause = "WHERE " + remaining_where_clause
+
+        # Calculate remaining relationships count
+        cursor.execute(f'''
+            SELECT COUNT(*) as Remaining_Relationship_Count
+            FROM ActivityRelationshipView
+            {remaining_where_clause}
+        ''')
+        remaining_count = cursor.fetchone()[0]
+
+        # Calculate total relationships for the project (for percentage calculation)
+        total_filters = []
+        if project_id and project_id != 'All':
+            total_filters.append(f"Project_ID = '{project_id}'")
+        
+        total_where_clause = ""
+        if total_filters:
+            total_where_clause = "WHERE " + " AND ".join(total_filters)
+
+        cursor.execute(f'''
+            SELECT COUNT(*) as Total_Relationship_Count
+            FROM ActivityRelationshipView
+            {total_where_clause}
+        ''')
+        total_count = cursor.fetchone()[0]
+
+        # Calculate lead percentage
+        lead_percentage = 0
+        if remaining_count > 0:
+            lead_percentage = round((leads_count * 100.0) / remaining_count, 2)
+
+        kpi_data = {
+            "Total_Relationship_Count": int(total_count) if total_count is not None else 0,
+            "Remaining_Relationship_Count": int(remaining_count) if remaining_count is not None else 0,
+            "Leads_Count": int(leads_count) if leads_count is not None else 0,
+            "Lead_Percentage": float(lead_percentage) if lead_percentage is not None else 0.0
+        }
     except Exception as e:
         print(f"Error in leads-kpi: {e}")
         kpi_data = {
@@ -566,7 +677,9 @@ def leads_chart_data():
         filters.append(f"Lag = {lag}")
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
-    # ProjectID filter - Placeholder for now
+    # Project filter
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
     where_clause = " AND ".join(filters)
     if where_clause:
         where_clause = "WHERE " + where_clause
@@ -642,6 +755,10 @@ def lags():
     # Apply FreeFloat filter
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
+
+    # Apply Project filter
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
 
     where_clause = " AND ".join(filters)
     if where_clause:
@@ -724,84 +841,82 @@ def lags_kpi():
     project_id = request.args.get('project_id')
 
     try:
-        # Try to get data from FinalActivityKPIView first
-        cursor.execute("SELECT Lag_Count, Lag_Percentage FROM FinalActivityKPIView LIMIT 1")
-        kpi_data = cursor.fetchone()
-        
-        if kpi_data:
-            lag_count = kpi_data[0] if kpi_data[0] is not None else 0
-            lag_percentage = kpi_data[1] if kpi_data[1] is not None else 0
-        else:
-            raise Exception("No data in FinalActivityKPIView")
-            
-    except Exception as e:
-        print(f"FinalActivityKPIView not accessible: {e}. Using fallback calculations.")
-        
-        # Fallback calculations
-        filters = []
-        filters.append("Relationship_Status = 'Incomplete'")
-        filters.append("Lag != 0")
-        filters.append("Lag IS NOT NULL")
-
+        # Always calculate from ActivityRelationshipView with proper Lags filters
+        # Build filters for lags calculation (Lag != 0, Lag IS NOT NULL, and Relationship_Status = 'Incomplete')
+        lags_filters = [
+            "Relationship_Status = 'Incomplete'",
+            "Lag != 0",
+            "Lag IS NOT NULL"
+        ]
         if relationship_type and relationship_type != 'All':
-            filters.append(f"RelationshipType = '{relationship_type}'")
+            lags_filters.append(f"RelationshipType = '{relationship_type}'")
         if driving and driving != 'All':
-            filters.append(f"Driving = '{driving}'")
+            lags_filters.append(f"Driving = '{driving}'")
         if lag and lag != 'All':
-            filters.append(f"Lag = {lag}")
+            lags_filters.append(f"Lag = {lag}")
         if free_float and free_float != 'All':
-            filters.append(f"FreeFloat = {free_float}")
+            lags_filters.append(f"FreeFloat = {free_float}")
+        if project_id and project_id != 'All':
+            lags_filters.append(f"Project_ID = '{project_id}'")
+        
+        lags_where_clause = " AND ".join(lags_filters)
+        if lags_where_clause:
+            lags_where_clause = "WHERE " + lags_where_clause
 
-        where_clause = " AND ".join(filters)
-        if where_clause:
-            where_clause = "WHERE " + where_clause
-
-        # Lag Count
-        cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {where_clause}')
+        # Calculate lags count
+        cursor.execute(f'''
+            SELECT COUNT(*) as Lag_Count
+            FROM ActivityRelationshipView
+            {lags_where_clause}
+        ''')
         lag_count = cursor.fetchone()[0]
 
-        # Total relationships for percentage calculation
-        total_filters = ["Relationship_Status = 'Incomplete'"]
+        # Build filters for remaining relationships calculation (only Relationship_Status = 'Incomplete')
+        remaining_filters = ["Relationship_Status = 'Incomplete'"]
         if relationship_type and relationship_type != 'All':
-            total_filters.append(f"RelationshipType = '{relationship_type}'")
+            remaining_filters.append(f"RelationshipType = '{relationship_type}'")
         if driving and driving != 'All':
-            total_filters.append(f"Driving = '{driving}'")
+            remaining_filters.append(f"Driving = '{driving}'")
+        if lag and lag != 'All':
+            remaining_filters.append(f"Lag = {lag}")
         if free_float and free_float != 'All':
-            total_filters.append(f"FreeFloat = {free_float}")
+            remaining_filters.append(f"FreeFloat = {free_float}")
+        if project_id and project_id != 'All':
+            remaining_filters.append(f"Project_ID = '{project_id}'")
+        
+        remaining_where_clause = " AND ".join(remaining_filters)
+        if remaining_where_clause:
+            remaining_where_clause = "WHERE " + remaining_where_clause
 
-        total_where_clause = " AND ".join(total_filters)
-        if total_where_clause:
-            total_where_clause = "WHERE " + total_where_clause
+        # Calculate remaining relationships count
+        cursor.execute(f'''
+            SELECT COUNT(*) as Remaining_Relationships
+            FROM ActivityRelationshipView
+            {remaining_where_clause}
+        ''')
+        remaining_relationships = cursor.fetchone()[0]
 
-        cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {total_where_clause}')
-        total_relationships = cursor.fetchone()[0]
+        # Calculate lag percentage
+        lag_percentage = 0
+        if remaining_relationships > 0:
+            lag_percentage = round((lag_count * 100.0) / remaining_relationships, 1)
 
-        # Calculate percentage
-        lag_percentage = (lag_count / total_relationships * 100) if total_relationships > 0 else 0
-
-    # Remaining relationships calculation
-    remaining_filters = ["Relationship_Status = 'Incomplete'"]
-    if relationship_type and relationship_type != 'All':
-        remaining_filters.append(f"RelationshipType = '{relationship_type}'")
-    if driving and driving != 'All':
-        remaining_filters.append(f"Driving = '{driving}'")
-    if free_float and free_float != 'All':
-        remaining_filters.append(f"FreeFloat = {free_float}")
-
-    remaining_where_clause = " AND ".join(remaining_filters)
-    if remaining_where_clause:
-        remaining_where_clause = "WHERE " + remaining_where_clause
-
-    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {remaining_where_clause}')
-    remaining_relationships = cursor.fetchone()[0]
-
-    conn.close()
-
-    return jsonify({
-        "Lag_Count": lag_count,
-        "Remaining_Relationships": remaining_relationships,
-        "Lag_Percentage": round(lag_percentage, 1)
-    })
+        kpi_data = {
+            "Lag_Count": int(lag_count) if lag_count is not None else 0,
+            "Remaining_Relationships": int(remaining_relationships) if remaining_relationships is not None else 0,
+            "Lag_Percentage": float(lag_percentage) if lag_percentage is not None else 0.0
+        }
+    except Exception as e:
+        print(f"Error in lags-kpi: {e}")
+        kpi_data = {
+            "Lag_Count": 0,
+            "Remaining_Relationships": 0,
+            "Lag_Percentage": 0.0
+        }
+    finally:
+        conn.close()
+    
+    return jsonify(kpi_data)
 
 @app.route('/api/lags-chart-data')
 def lags_chart_data():
@@ -827,6 +942,8 @@ def lags_chart_data():
         filters.append(f"Lag = {lag}")
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
 
     where_clause = " AND ".join(filters)
     if where_clause:
@@ -904,6 +1021,10 @@ def excessive_lags():
     # Apply FreeFloat filter
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
+
+    # Apply Project filter
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
 
     where_clause = " AND ".join(filters)
     if where_clause:
@@ -985,83 +1106,57 @@ def excessive_lags_kpi():
     free_float = request.args.get('free_float')
     project_id = request.args.get('project_id')
 
-    try:
-        # Try to get data from FinalActivityKPIView first
-        cursor.execute("SELECT Lag_Count, Lag_Percentage FROM FinalActivityKPIView LIMIT 1")
-        kpi_data = cursor.fetchone()
-        
-        if kpi_data:
-            lag_count = kpi_data[0] if kpi_data[0] is not None else 0
-            lag_percentage = kpi_data[1] if kpi_data[1] is not None else 0
-        else:
-            raise Exception("No data in FinalActivityKPIView")
-            
-    except Exception as e:
-        print(f"FinalActivityKPIView not accessible: {e}. Using fallback calculations.")
-        
-        # Fallback calculations
-        filters = []
-        filters.append("Relationship_Status = 'Incomplete'")
-        filters.append("ExcessiveLag = 'Excessive Lag'")
+    # Always calculate from ActivityRelationshipView with proper filtering
+    filters = []
+    filters.append("Relationship_Status = 'Incomplete'")
+    filters.append("ExcessiveLag = 'Excessive Lag'")
 
-        if relationship_type and relationship_type != 'All':
-            filters.append(f"RelationshipType = '{relationship_type}'")
-        if driving and driving != 'All':
-            filters.append(f"Driving = '{driving}'")
-        if lag and lag != 'All':
-            filters.append(f"Lag = {lag}")
-        if free_float and free_float != 'All':
-            filters.append(f"FreeFloat = {free_float}")
-
-        where_clause = " AND ".join(filters)
-        if where_clause:
-            where_clause = "WHERE " + where_clause
-
-        # Excessive Lag Count
-        cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {where_clause}')
-        lag_count = cursor.fetchone()[0]
-
-        # Total relationships for percentage calculation
-        total_filters = ["Relationship_Status = 'Incomplete'"]
-        if relationship_type and relationship_type != 'All':
-            total_filters.append(f"RelationshipType = '{relationship_type}'")
-        if driving and driving != 'All':
-            total_filters.append(f"Driving = '{driving}'")
-        if free_float and free_float != 'All':
-            total_filters.append(f"FreeFloat = {free_float}")
-
-        total_where_clause = " AND ".join(total_filters)
-        if total_where_clause:
-            total_where_clause = "WHERE " + total_where_clause
-
-        cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {total_where_clause}')
-        total_relationships = cursor.fetchone()[0]
-
-        # Calculate percentage
-        lag_percentage = (lag_count / total_relationships * 100) if total_relationships > 0 else 0
-
-    # Remaining relationships calculation
-    remaining_filters = ["Relationship_Status = 'Incomplete'"]
     if relationship_type and relationship_type != 'All':
-        remaining_filters.append(f"RelationshipType = '{relationship_type}'")
+        filters.append(f"RelationshipType = '{relationship_type}'")
     if driving and driving != 'All':
-        remaining_filters.append(f"Driving = '{driving}'")
+        filters.append(f"Driving = '{driving}'")
+    if lag and lag != 'All':
+        filters.append(f"Lag = {lag}")
     if free_float and free_float != 'All':
-        remaining_filters.append(f"FreeFloat = {free_float}")
+        filters.append(f"FreeFloat = {free_float}")
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
 
-    remaining_where_clause = " AND ".join(remaining_filters)
-    if remaining_where_clause:
-        remaining_where_clause = "WHERE " + remaining_where_clause
+    where_clause = " AND ".join(filters)
+    if where_clause:
+        where_clause = "WHERE " + where_clause
 
-    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {remaining_where_clause}')
-    remaining_relationships = cursor.fetchone()[0]
+    # Excessive Lag Count
+    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {where_clause}')
+    lag_count = cursor.fetchone()[0]
+
+    # Total relationships for percentage calculation (remaining relationships with same filters except ExcessiveLag)
+    total_filters = ["Relationship_Status = 'Incomplete'"]
+    if relationship_type and relationship_type != 'All':
+        total_filters.append(f"RelationshipType = '{relationship_type}'")
+    if driving and driving != 'All':
+        total_filters.append(f"Driving = '{driving}'")
+    if free_float and free_float != 'All':
+        total_filters.append(f"FreeFloat = {free_float}")
+    if project_id and project_id != 'All':
+        total_filters.append(f"Project_ID = '{project_id}'")
+
+    total_where_clause = " AND ".join(total_filters)
+    if total_where_clause:
+        total_where_clause = "WHERE " + total_where_clause
+
+    cursor.execute(f'SELECT COUNT(*) FROM ActivityRelationshipView {total_where_clause}')
+    total_relationships = cursor.fetchone()[0]
+
+    # Calculate percentage
+    lag_percentage = (lag_count / total_relationships * 100) if total_relationships > 0 else 0
 
     conn.close()
 
     return jsonify({
-        "Lag_Count": lag_count,
-        "Remaining_Relationships": remaining_relationships,
-        "Lag_Percentage": round(lag_percentage, 1)
+        "Lag_Count": int(lag_count),
+        "Remaining_Relationships": int(total_relationships),
+        "Lag_Percentage": float(round(lag_percentage, 1))
     })
 
 @app.route('/api/excessive-lags-chart-data')
@@ -1087,6 +1182,8 @@ def excessive_lags_chart_data():
         filters.append(f"Lag = {lag}")
     if free_float and free_float != 'All':
         filters.append(f"FreeFloat = {free_float}")
+    if project_id and project_id != 'All':
+        filters.append(f"Project_ID = '{project_id}'")
 
     where_clause = " AND ".join(filters)
     if where_clause:
